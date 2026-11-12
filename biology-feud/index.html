@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Biology Feud: CFA review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E4E1FF; --bg2:#FFFFFF; --ink:#0D004D; --muted:#4A3D8F;
+  --panel:#FFFFFF; --panel-edge:#C1BFFF;
+  --tile:#512EAB; --tile-deep:#2B1580; --gold:#FFCE00; --fuchsia:#DF41CF;
+  --teal:#56E2E1; --red:#E3263B; --face:#FFFDF3; --face-ink:#0D004D; --shown:#DDF7F7;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D004D; --bg2:#2A1478; --ink:#F4F2FF; --muted:#BDB7F5;
+    --panel:#1B0D63; --panel-edge:#512EAB; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D004D; --bg2:#2A1478; --ink:#F4F2FF; --muted:#BDB7F5;
+  --panel:#1B0D63; --panel-edge:#512EAB; color-scheme:dark;
+}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Fredoka","Trebuchet MS","Segoe UI",system-ui,sans-serif}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--fuchsia);outline-offset:3px}
+
+/* ---------- Board ---------- */
+.app{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;
+  gap:clamp(8px,1.6vh,18px);padding:clamp(10px,2vh,24px) clamp(12px,3vw,40px);
+  background:radial-gradient(ellipse 85% 65% at 50% 38%,var(--bg2),var(--bg));overflow:hidden}
+.top{display:grid;grid-template-columns:minmax(130px,1fr) minmax(0,3.2fr) minmax(130px,1fr);
+  align-items:center;gap:clamp(10px,2vw,28px)}
+.team{background:var(--panel);border:3px solid var(--panel-edge);border-radius:20px;
+  padding:clamp(8px,1.4vh,16px) 10px;text-align:center;display:flex;flex-direction:column;
+  align-items:center;gap:2px;transition:transform .3s,border-color .3s}
+.team.bump{animation:bump .7s ease}
+@keyframes bump{30%{transform:scale(1.08);border-color:var(--gold)}}
+.tname{font-weight:600;font-size:clamp(.9rem,1.7vw,1.5rem);min-width:3ch;border-radius:6px;padding:0 4px}
+.tscore{font-weight:700;font-size:clamp(2rem,4.6vw,4.4rem);line-height:1;min-width:2ch;border-radius:8px;padding:0 6px}
+.award{margin-top:6px;border:0;border-radius:999px;background:var(--fuchsia);color:#fff;
+  font-family:Archivo,system-ui,sans-serif;font-weight:700;font-size:clamp(.75rem,1vw,.95rem);
+  padding:.45em 1em;cursor:pointer}
+.award[hidden]{display:none}
+.center{text-align:center;min-width:0}
+.qmeta{font-family:Archivo,system-ui,sans-serif;font-weight:600;color:var(--muted);
+  font-size:clamp(.8rem,1.15vw,1.05rem)}
+.q{font-weight:600;font-size:clamp(1.3rem,3vw,2.9rem);line-height:1.15;margin:.2em 0 0;text-wrap:balance}
+
+.potrow{display:flex;justify-content:center;align-items:center;gap:clamp(12px,2.5vw,36px)}
+.pot{background:var(--tile-deep);color:var(--gold);border:4px solid var(--gold);border-radius:20px;
+  min-width:3.2ch;text-align:center;padding:0 .5em;font-weight:700;
+  font-size:clamp(2rem,5.2vh,4.4rem);line-height:1.15;box-shadow:0 0 0 6px rgba(255,206,0,.18)}
+.strikes{display:flex;gap:clamp(6px,1vw,12px)}
+.slot{width:clamp(36px,5.6vh,60px);aspect-ratio:1;border:3px dashed var(--panel-edge);border-radius:12px;
+  display:grid;place-items:center}
+.slot svg{width:78%;opacity:0}
+.slot.on{background:var(--red);border:3px solid var(--red)}
+.slot.on svg{opacity:1}
+
+.board{display:grid;grid-template-rows:repeat(5,minmax(0,1fr));gap:clamp(6px,1.2vh,14px);
+  width:100%;max-width:1240px;margin:0 auto;min-height:0}
+.tile{perspective:1400px;border:0;background:none;padding:0;cursor:pointer;min-height:48px;
+  height:100%;width:100%;border-radius:18px;display:block}
+.inner{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;
+  transition:transform .65s cubic-bezier(.3,1.35,.5,1)}
+.tile.open .inner{transform:rotateX(-180deg)}
+.noanim .inner{transition:none!important}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  border-radius:16px;display:flex;align-items:center;overflow:hidden}
+.front{justify-content:center;background:linear-gradient(180deg,#6B47CB 0%,var(--tile) 55%,var(--tile-deep) 100%);
+  border:3px solid #7E5CE0;box-shadow:inset 0 -6px 0 rgba(0,0,0,.22)}
+.num{height:76%;aspect-ratio:1;border-radius:50%;background:var(--tile-deep);color:var(--gold);
+  border:3px solid var(--gold);display:grid;place-items:center;font-weight:700;font-size:clamp(1.2rem,4.4vh,2.8rem)}
+.tile:hover .front{border-color:var(--gold)}
+.board.over .tile:not(.open) .front{border-color:var(--teal);animation:waiting 1.6s ease-in-out infinite}
+@keyframes waiting{50%{box-shadow:inset 0 -6px 0 rgba(0,0,0,.22),0 0 0 5px rgba(86,226,225,.45)}}
+.back{transform:rotateX(180deg);background:var(--face);color:var(--face-ink);border:3px solid var(--gold);gap:clamp(10px,1.4vw,20px)}
+.bn{align-self:stretch;display:grid;place-items:center;min-width:clamp(40px,6vh,72px);background:var(--tile-deep);
+  color:var(--gold);font-weight:700;font-size:clamp(1rem,3.4vh,2.2rem)}
+.ans{flex:1;text-align:left;font-weight:600;font-size:clamp(1rem,3.5vh,2.5rem);line-height:1.08;padding:4px 0}
+.pts{align-self:stretch;display:grid;place-items:center;min-width:clamp(70px,8vw,140px);background:var(--gold);
+  color:#0D004D;font-weight:700;font-size:clamp(1.3rem,4.4vh,3.1rem)}
+.tile.shown .back{background:var(--shown);border:3px dashed var(--teal)}
+.tile.shown .pts{background:#B9ECEC;color:#2D5872}
+
+.host{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--panel);
+  border:2px solid var(--panel-edge);border-radius:16px;padding:8px;font-family:Archivo,system-ui,sans-serif}
+.app.clean .host{display:none}
+.hb,.sel{font-family:Archivo,system-ui,sans-serif;font-weight:700;font-size:.9rem;background:transparent;
+  border:2px solid var(--panel-edge);border-radius:10px;padding:.5em .85em;min-height:42px;cursor:pointer}
+.sel{max-width:min(320px,60vw);background:var(--panel)}
+.hb:hover{border-color:var(--fuchsia)}
+.hb.buzz{background:var(--red);border-color:var(--red);color:#fff;font-size:1rem;padding:.5em 1.3em}
+.hb.buzz:hover{border-color:#fff}
+.hb.armed{background:var(--gold);border-color:var(--gold);color:#0D004D}
+.status{flex:1 1 260px;color:var(--muted);font-size:.9rem;font-weight:600;padding:0 6px}
+.showctl{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));opacity:.3;z-index:5;display:none}
+.app.clean ~ .showctl{display:block}
+.floatbuzz{position:fixed;right:12px;bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:5;display:none;
+  width:64px;height:64px;border-radius:50%;border:4px solid #fff;background:var(--red);cursor:pointer;padding:12px;
+  box-shadow:0 6px 18px rgba(13,0,77,.4)}
+.floatbuzz svg{width:100%;height:100%;display:block}
+.floatbuzz:active{transform:scale(.92)}
+.app.clean ~ .floatbuzz{display:block}
+.showctl:hover{opacity:1}
+
+/* ---------- Strike overlay ---------- */
+.xover{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;gap:2vw;
+  pointer-events:none;opacity:0;z-index:30}
+.xover.show{animation:xpop 1.25s ease forwards;background:rgba(13,0,77,.35)}
+@keyframes xpop{0%{opacity:0;transform:scale(1.35)}12%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0}}
+.xover svg{width:min(25vw,42vh);height:auto;filter:drop-shadow(0 10px 24px rgba(0,0,0,.45))}
+
+/* ---------- Answer key (drawer + window) ---------- */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,94vw);background:var(--panel);
+  border-left:5px solid var(--fuchsia);transform:translateX(105%);transition:transform .3s ease;
+  z-index:20;overflow:auto;padding:calc(16px + env(safe-area-inset-top,0px)) 18px calc(18px + env(safe-area-inset-bottom,0px));
+  font-family:Archivo,system-ui,sans-serif;box-shadow:-10px 0 40px rgba(13,0,77,.35)}
+.drawer.open{transform:none}
+.dhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dhead h2{margin:0;font-family:Fredoka,system-ui,sans-serif;font-size:1.5rem}
+.note{font-size:.85rem;color:var(--muted);line-height:1.4;margin:.6em 0 1em}
+.kq{font-weight:700;font-size:1.05rem;line-height:1.3;margin:0 0 .6em}
+.krows{display:flex;flex-direction:column;gap:6px}
+.krow{display:flex;gap:6px}
+.kbtn{flex:1;display:grid;grid-template-columns:2.2em 1fr auto;align-items:center;gap:8px;text-align:left;
+  border:2px solid var(--panel-edge);background:transparent;border-radius:10px;padding:.55em .7em;cursor:pointer;
+  font-family:Archivo,system-ui,sans-serif;font-size:.98rem;font-weight:600}
+.kbtn:hover:not(:disabled){border-color:var(--fuchsia)}
+.kbtn:disabled{cursor:default}
+.kn{display:grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%;background:var(--tile);color:var(--gold);font-weight:800}
+.kp{font-weight:800}
+.krow.won .kbtn{background:var(--gold);border-color:var(--gold);color:#0D004D}
+.krow.shown .kbtn{background:var(--shown);border:2px dashed var(--teal);color:#0D004D}
+.khide{border:2px solid var(--panel-edge);background:transparent;border-radius:10px;padding:0 .7em;cursor:pointer;
+  font-family:Archivo,system-ui,sans-serif;font-weight:600;font-size:.85rem}
+.kmeta{display:flex;gap:14px;flex-wrap:wrap;font-weight:700;margin:.9em 0 .6em}
+.kactions{display:flex;flex-wrap:wrap;gap:8px;margin-top:.6em}
+.kactions .hb{flex:1 1 auto}
+.shortcuts{font-size:.85rem;color:var(--muted);line-height:1.6;margin-top:1.2em;border-top:2px solid var(--panel-edge);padding-top:.8em}
+kbd{font-family:Archivo,system-ui,sans-serif;font-weight:700;border:1.5px solid var(--panel-edge);border-radius:5px;padding:0 .35em}
+
+.keyview{max-width:780px;margin:0 auto;padding:20px 16px 40px;font-family:Archivo,system-ui,sans-serif}
+.keyview[hidden],.app[hidden]{display:none}
+.keyview h1{font-family:Fredoka,system-ui,sans-serif;font-size:2rem;margin:0}
+.kvnav{display:flex;flex-wrap:wrap;gap:8px;margin:1em 0}
+.link{display:inline-block;font-weight:700;border-radius:999px;padding:.3em .9em;font-size:.85rem;margin-top:.5em;
+  background:var(--panel-edge);color:var(--ink)}
+.link.on{background:var(--teal);color:#0D004D}
+.keyview .kbtn{font-size:1.1rem;padding:.75em .8em}
+.keyview .kq{font-size:1.35rem;font-family:Fredoka,system-ui,sans-serif;font-weight:600}
+
+/* ---------- Team setup form (deliberately plain) ---------- */
+.setup{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:rgba(13,0,77,.55);padding:16px}
+.setup[hidden]{display:none}
+.setup form{background:var(--panel);color:var(--ink);border-radius:14px;padding:28px;width:min(440px,100%);
+  font-family:Archivo,system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.setup h2{margin:0 0 .3em;font-size:1.4rem}
+.setup p{margin:0 0 1.2em;color:var(--muted);font-size:.95rem;line-height:1.4}
+.setup label{display:block;font-weight:600;font-size:.9rem;margin:0 0 .35em}
+.setup input{width:100%;font:inherit;font-size:1rem;padding:.6em .7em;border:2px solid var(--panel-edge);
+  border-radius:8px;background:var(--bg);color:var(--ink);margin-bottom:1em}
+.setup button[type=submit]{width:100%;background:var(--tile);color:#fff;border:0;border-radius:8px;padding:.75em;
+  font-family:Archivo,system-ui,sans-serif;font-weight:700;font-size:1rem;cursor:pointer;margin-top:.3em}
+
+/* ---------- Big intro ---------- */
+.intro{position:fixed;inset:0;z-index:45;color:#fff;overflow:hidden;cursor:pointer;
+  background:radial-gradient(ellipse 70% 60% at 50% 45%,#2A1478,#0D004D 75%);transition:opacity .4s}
+.intro[hidden]{display:none}
+.intro.out{opacity:0}
+.beam{position:absolute;top:-20%;width:46vw;height:150%;opacity:.16;pointer-events:none;
+  background:linear-gradient(180deg,#FFCE00,transparent 75%);clip-path:polygon(44% 0,56% 0,100% 100%,0 100%)}
+.beam.l{left:-6vw;transform-origin:50% 0;animation:sweepL 5s ease-in-out infinite alternate}
+.beam.r{right:-6vw;transform-origin:50% 0;animation:sweepR 5s ease-in-out infinite alternate;
+  background:linear-gradient(180deg,#56E2E1,transparent 75%)}
+@keyframes sweepL{from{transform:rotate(-24deg)}to{transform:rotate(14deg)}}
+@keyframes sweepR{from{transform:rotate(24deg)}to{transform:rotate(-14deg)}}
+.stage{position:absolute;inset:0}
+.stage.shake{animation:shake .4s linear}
+@keyframes shake{20%{transform:translate(-9px,5px)}40%{transform:translate(8px,-6px)}60%{transform:translate(-5px,3px)}80%{transform:translate(3px,-2px)}}
+.scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(8px,2vh,24px);text-align:center;padding:0 4vw}
+.ib{opacity:0;transition:opacity .45s ease}
+.ib.on{opacity:1}
+.i-welcome{font-weight:500;font-size:clamp(1.3rem,3.4vw,2.8rem);color:#C1BFFF}
+.i-title{font-weight:700;font-size:clamp(3.2rem,12vw,11rem);line-height:.95;color:#FFCE00;
+  text-shadow:0 .06em 0 #DF41CF,0 .12em 0 #512EAB;transform:scale(.4)}
+.i-title.on{animation:grow .8s cubic-bezier(.2,1.5,.4,1) forwards}
+@keyframes grow{from{transform:scale(.4)}to{transform:scale(1)}}
+.i-match{font-weight:500;font-size:clamp(1.2rem,3vw,2.5rem);color:#C1BFFF}
+.vsrow{display:flex;align-items:center;justify-content:center;gap:clamp(14px,3vw,48px);flex-wrap:nowrap}
+@media (max-width:760px){.vsrow{flex-direction:column}}
+.tm{font-weight:700;font-size:clamp(2.8rem,6.6vw,7.5rem);line-height:1;white-space:nowrap;
+  transform:scale(2.4) rotate(var(--r));text-shadow:0 .07em 0 rgba(0,0,0,.35)}
+.tm.on{animation:slam .45s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes slam{from{opacity:0;transform:scale(2.4) rotate(var(--r))}to{opacity:1;transform:scale(1) rotate(var(--r))}}
+#iThis{--r:-4deg;color:#FFCE00}
+#iThat{--r:4deg;color:#56E2E1}
+.i-vs{font-weight:700;font-size:clamp(1.6rem,4vw,3.6rem);color:#fff;background:#DF41CF;border-radius:50%;
+  width:2.2em;height:2.2em;display:grid;place-items:center}
+.i-play{font-weight:700;font-size:clamp(3rem,10vw,9rem);color:#FFCE00;transform:scale(.5)}
+.i-play.on{animation:grow .7s cubic-bezier(.2,1.5,.4,1) forwards}
+.skip{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:20px;font-family:Archivo,system-ui,sans-serif;
+  font-size:.85rem;color:#C1BFFF;opacity:.6}
+@media (prefers-reduced-motion:reduce){
+  .beam,.stage.shake{animation:none}
+  .tm.on,.i-title.on,.i-play.on{animation:none;transform:rotate(var(--r,0deg))}
+}
+
+@media (max-width:760px){
+  .app{height:auto;min-height:100%;overflow:visible}
+  .top{grid-template-columns:1fr 1fr}
+  .center{grid-column:1/-1;order:-1}
+  .board{grid-template-rows:none;grid-auto-rows:64px}
+  .ans{font-size:1rem}.pts{font-size:1.4rem;min-width:62px}.num{font-size:1.4rem}
+}
+@media (prefers-reduced-motion:reduce){
+  .inner{transition:opacity .2s}
+  .tile.open .inner{transform:none}
+  .tile.open .front{opacity:0}
+  .back{transform:none;opacity:0}
+  .tile.open .back{opacity:1}
+  .board.over .tile:not(.open) .front,.team.bump{animation:none}
+  .xover.show{animation-duration:1.4s}
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <header class="top">
+    <div class="team" data-t="0">
+      <span class="tname" contenteditable="true" spellcheck="false" aria-label="Team 1 name"></span>
+      <span class="tscore" contenteditable="true" spellcheck="false" inputmode="numeric" aria-label="Team 1 score"></span>
+      <button class="award" data-t="0" hidden></button>
+    </div>
+    <div class="center">
+      <div class="qmeta" id="qmeta"></div>
+      <h1 class="q" id="qtext"></h1>
+    </div>
+    <div class="team" data-t="1">
+      <span class="tname" contenteditable="true" spellcheck="false" aria-label="Team 2 name"></span>
+      <span class="tscore" contenteditable="true" spellcheck="false" inputmode="numeric" aria-label="Team 2 score"></span>
+      <button class="award" data-t="1" hidden></button>
+    </div>
+  </header>
+
+  <div class="potrow">
+    <div class="pot" id="pot" aria-label="Points in play">0</div>
+    <div class="strikes" id="strikes" aria-label="Strikes"></div>
+  </div>
+
+  <main class="board" id="board"></main>
+
+  <footer class="host" id="host">
+    <select class="sel" id="setSel" aria-label="Question set"></select>
+    <button class="hb" id="prev" aria-label="Previous question">◀</button>
+    <select class="sel" id="qSel" aria-label="Question"></select>
+    <button class="hb" id="next" aria-label="Next question">▶</button>
+    <button class="hb buzz" id="buzz">✕ Buzzer</button>
+    <button class="hb" id="keyBtn">Answer key</button>
+    <span class="status" id="status"></span>
+    <button class="hb" id="resetBtn">Reset question</button>
+    <button class="hb" id="soundBtn"></button>
+    <button class="hb" id="cleanBtn" title="Hide this bar (H)">Hide controls</button>
+  </footer>
+</div>
+<button class="hb showctl" id="showCtl">Show controls</button>
+<button class="floatbuzz" id="floatBuzz" aria-label="Buzzer" title="Buzzer (X)"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M22 22L78 78M78 22L22 78" stroke="#fff" stroke-width="16" stroke-linecap="round"/></svg></button>
+
+<aside class="drawer" id="drawer" aria-label="Answer key">
+  <div class="dhead"><h2>Answer key</h2><button class="hb" id="closeKey">Close</button></div>
+  <p class="note">This panel shows on screen, so close it before you share or project. For a private key, open this page’s link with <b>#key</b> added to the end in a second window. It controls this board.</p>
+  <p class="kq" id="dQ"></p>
+  <div class="krows" id="dRows"></div>
+  <div class="kmeta" id="dMeta"></div>
+  <div class="kactions">
+    <button class="hb" id="dUnstrike">Remove a strike</button>
+    <button class="hb" id="dNewGame">New game</button>
+    <button class="hb" id="dNames">Change team names</button>
+    <button class="hb" id="dIntro">Replay intro</button>
+  </div>
+  <div class="shortcuts">
+    <kbd>1</kbd>–<kbd>5</kbd> reveal a box &nbsp; <kbd>X</kbd> buzzer &nbsp; <kbd>←</kbd> <kbd>→</kbd> change question<br>
+    <kbd>K</kbd> answer key &nbsp; <kbd>H</kbd> hide controls &nbsp; <kbd>M</kbd> sound<br>
+    Shift-click a revealed box (or use Hide here) to cover it again. Click a team’s name or score to edit it.
+  </div>
+</aside>
+
+<div class="xover" id="xover" aria-hidden="true"></div>
+
+<div class="setup" id="setup" hidden>
+  <form id="setupForm" autocomplete="off">
+    <h2>Team names</h2>
+    <p>Enter a name for each team. These will be used throughout the game.</p>
+    <label for="t1in">Team 1 name</label>
+    <input id="t1in" maxlength="28" placeholder="Team 1">
+    <label for="t2in">Team 2 name</label>
+    <input id="t2in" maxlength="28" placeholder="Team 2">
+    <button type="submit">Submit</button>
+  </form>
+</div>
+
+<div class="intro" id="intro" hidden aria-live="polite">
+  <div class="beam l"></div><div class="beam r"></div>
+  <div class="stage" id="stage">
+    <div class="scene">
+      <div class="ib i-welcome" id="iWelcome">Welcome to</div>
+      <div class="ib i-title" id="iTitle">Biology Feud!</div>
+    </div>
+    <div class="scene">
+      <div class="ib i-match" id="iMatch">Today’s matchup</div>
+      <div class="vsrow">
+        <div class="ib tm" id="iThis">This team</div>
+        <div class="ib i-vs" id="iVs">vs</div>
+        <div class="ib tm" id="iThat">That team</div>
+      </div>
+    </div>
+    <div class="scene"><div class="ib i-play" id="iPlay">Let’s play!</div></div>
+  </div>
+  <div class="skip">Click to skip</div>
+</div>
+
+<div class="keyview" id="keyview" hidden>
+  <h1>Answer key</h1>
+  <span class="link" id="kvLink">Looking for the board…</span>
+  <div class="kvnav">
+    <select class="sel" id="kvSet" aria-label="Question set"></select>
+    <button class="hb" id="kvPrev" aria-label="Previous question">◀</button>
+    <select class="sel" id="kvQ" aria-label="Question"></select>
+    <button class="hb" id="kvNext" aria-label="Next question">▶</button>
+  </div>
+  <p class="kq" id="kvQText"></p>
+  <div class="krows" id="kvRows"></div>
+  <div class="kmeta" id="kvMeta"></div>
+  <div class="kactions">
+    <button class="hb buzz" id="kvBuzz">✕ Buzzer</button>
+    <button class="hb" id="kvAward0"></button>
+    <button class="hb" id="kvAward1"></button>
+  </div>
+  <div class="kactions">
+    <button class="hb" id="kvUnstrike">Remove a strike</button>
+    <button class="hb" id="kvReset">Reset question</button>
+  </div>
+  <p class="note" id="kvStatus"></p>
+  <div class="shortcuts">Keys work here too: <kbd>1</kbd>–<kbd>5</kbd> reveal, <kbd>X</kbd> buzzer, <kbd>←</kbd> <kbd>→</kbd> change question. Click the board window once at the start so its sounds can play.</div>
+</div>
+
+<script>
+/* ======================= QUESTIONS ======================= */
+const SETS = [
+ { id:"cfa1", name:"CFA #1", qs:[
+  {n:1, q:"Name a direction molecules move during diffusion.", a:[["From high to low concentration",45],["Down the concentration gradient",25],["Toward equilibrium",15],["Into or out of a cell until balanced",10],["No energy required / passive movement",5]]},
+  {n:2, q:"What happens to a cell in a hypertonic solution?", a:[["It shrinks as water leaves",50],["Water moves out due to more solute outside",25],["Osmosis moves water to higher solute area",15],["Cell becomes dehydrated",5],["Plant cell becomes plasmolyzed",5]]},
+  {n:3, q:"Name an organelle involved in making ATP.", a:[["Mitochondrion",60],["Cytoplasm (glycolysis occurs here)",15],["Cell membrane (for some bacteria)",10],["ATP synthase complexes",10],["Chloroplast (in plants indirectly provides energy)",5]]},
+  {n:4, q:"Name a type of membrane transport.", a:[["Passive transport",35],["Active transport",25],["Facilitated diffusion",20],["Endocytosis",10],["Exocytosis",10]]},
+  {n:6, q:"Name something that helps a cell reach equilibrium.", a:[["Diffusion",35],["Osmosis",30],["Balanced solute/solvent concentrations",15],["Passive transport",10],["Protein channels",10]]},
+  {n:7, q:"Name a step of cellular respiration.", a:[["Glycolysis",40],["Krebs Cycle",30],["Electron Transport Chain",20],["ATP production",5],["Breaking down glucose",5]]},
+  {n:8, q:"Name a step involved in making and transporting a protein.", a:[["Ribosome builds the protein",35],["Nucleus sends DNA instructions",25],["ER transports the protein",15],["Golgi modifies & packages it",15],["Vesicle carries protein to membrane",10]]},
+  {n:9, q:"Name a difference between passive and active transport.", a:[["Energy use (active requires ATP)",40],["Passive goes high → low",25],["Active goes low → high",20],["Examples: diffusion, osmosis, pumps",10],["Protein channels may be involved",5]]},
+  {n:10, q:"Name a possible effect of a hypertonic, hypotonic, or isotonic environment.", a:[["Cell shrinks (hypertonic)",35],["Cell swells (hypotonic)",30],["No net movement (isotonic)",20],["Plant becomes turgid/flaccid/plasmolyzed",10],["Water moves based on solute concentration",5]]},
+  {n:11, q:"What could happen to a freshwater protozoan placed in salt water?", a:[["Cell shrinks/shrivels",45],["Water leaves the cell",25],["Hypertonic environment causes dehydration",15],["Osmosis pulls water toward higher solute",10],["Loss of homeostasis",5]]},
+  {n:12, q:"Name something about the phospholipid bilayer that makes it selectively permeable.", a:[["Hydrophobic tails repel water/large molecules",35],["Hydrophilic heads interact with water",25],["Only certain molecules pass easily",20],["Protein channels regulate movement",10],["Semi-permeable structure maintains homeostasis",10]]},
+  {n:13, q:"Name a similarity or difference between osmosis and diffusion.", a:[["Both move from high → low concentration",30],["Osmosis is only water",25],["Diffusion moves solutes",20],["Both passive (no energy)",15],["Both aim for equilibrium",10]]},
+  {n:14, q:"Name a type of transport that requires a protein.", a:[["Facilitated diffusion",40],["Active transport (pumps)",30],["Endocytosis",15],["Exocytosis",10],["Ion channels",5]]},
+  {n:15, q:"Name a type of tropism.", a:[["Phototropism",35],["Gravitropism",25],["Hydrotropism",20],["Thigmotropism",10],["Chemotropism",10]]},
+  {n:16, q:"Name a place where proteins are built, processed, or transported.", a:[["Ribosome",35],["Endoplasmic reticulum",25],["Golgi apparatus",20],["Nucleus",10],["Vesicles",10]]}
+ ]},
+ { id:"cfa2", name:"CFA #2", qs:[
+  {n:1, q:"Name something involved in protein synthesis.", a:[["Ribosome",35],["mRNA",25],["tRNA",20],["Amino acids",10],["RNA polymerase",10]]},
+  {n:2, q:"Name an enzyme used in DNA or RNA processes.", a:[["DNA polymerase",40],["RNA polymerase",30],["Helicase",15],["Ligase",10],["Primase",5]]},
+  {n:3, q:"Name a type of RNA.", a:[["mRNA",40],["tRNA",30],["rRNA",20],["snRNA",5],["siRNA",5]]},
+  {n:4, q:"Name a location in the cell where genetic processes happen.", a:[["Nucleus",50],["Ribosome",25],["Cytoplasm",15],["Nucleolus",5],["Rough ER",5]]},
+  {n:5, q:"Name a step in protein synthesis.", a:[["Transcription",40],["Translation",35],["tRNA delivery of amino acids",10],["mRNA leaving the nucleus",10],["Forming a polypeptide chain",5]]},
+  {n:6, q:"Name a process that involves DNA or RNA.", a:[["Replication",35],["Transcription",25],["Translation",20],["Mutation",10],["Meiosis",10]]},
+  {n:7, q:"Name a type of inheritance pattern.", a:[["Dominant/Recessive",40],["Incomplete dominance",25],["Codominance",20],["Polygenic inheritance",10],["Multiple alleles",5]]},
+  {n:8, q:"Name a biotechnology tool or technique.", a:[["CRISPR-Cas9",40],["DNA fingerprinting",25],["Cloning",15],["Genetic engineering/GMO",10],["Gene therapy",10]]},
+  {n:9, q:"Name a source of genetic variation.", a:[["Crossing over",35],["Mutations",25],["Independent assortment",20],["Random fertilization",10],["Nondisjunction",10]]},
+  {n:10, q:"Name a type of asexual reproduction.", a:[["Binary fission",40],["Budding",25],["Fragmentation",15],["Vegetative propagation",10],["Spore formation",10]]}
+ ]}
+];
+
+/* ======================= STATE ======================= */
+const LS = "bioFeud.v1", LSCMD = "bioFeud.cmd";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const XSVG = '<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M20 20L80 80M80 20L20 80" stroke="#fff" stroke-width="26" stroke-linecap="round"/><path d="M20 20L80 80M80 20L20 80" stroke="#E3263B" stroke-width="16" stroke-linecap="round"/></svg>';
+const freshState = () => ({started:false, set:0, idx:0, teams:[{name:"Team 1",score:0},{name:"Team 2",score:0}], rounds:{}, muted:false});
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS));
+    if(s && SETS[s.set] && SETS[s.set].qs[s.idx] && Array.isArray(s.teams)) return s;
+  }catch(e){}
+  return null;
+}
+let S = load() || freshState();
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){} }
+
+const qOf = st => SETS[st.set].qs[st.idx];
+const keyOf = st => SETS[st.set].id + ":" + st.idx;
+const blankRound = () => ({rev:[null,null,null,null,null], strikes:0, pot:0, awardedTo:null});
+function round(){ const k = keyOf(S); if(!S.rounds[k]) S.rounds[k] = blankRound(); return S.rounds[k]; }
+const isKey = () => location.hash === "#key";
+
+/* ======================= SOUND ======================= */
+let AC = null;
+function ac(){
+  try{
+    if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if(AC.state === "suspended") AC.resume();
+  }catch(e){}
+  return AC;
+}
+function tone(f, t0, dur, type, vol, filterHz){
+  const a = ac(); if(!a || S.muted) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + t0;
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+  g.gain.setValueAtTime(vol, t + dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  let node = o;
+  if(filterHz){ const lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = filterHz; o.connect(lp); node = lp; }
+  node.connect(g).connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+const sDing  = () => { tone(988,0,.45,"triangle",.28); tone(1319,.13,.75,"triangle",.24); };
+const sSoft  = () => { tone(587,0,.4,"sine",.18); };
+const sBuzz  = () => { tone(92,0,.8,"sawtooth",.3,1400); tone(97,0,.8,"square",.16,1400); };
+const sAward = () => { [523,659,784,1047].forEach((f,i)=>tone(f,i*.09,.5,"triangle",.2)); };
+document.addEventListener("pointerdown", ac, {once:true});
+
+/* ======================= ACTIONS (board tab) ======================= */
+function reveal(i){
+  const r = round(), q = qOf(S);
+  if(i < 0 || i >= q.a.length || r.rev[i]) return;
+  // Before 3 strikes every match counts. After 3 strikes, only the one steal attempt counts.
+  const earned = r.awardedTo === null && (r.strikes < 3 || !r.stealDone);
+  if(r.strikes >= 3 && r.awardedTo === null && !r.stealDone) r.stealDone = "hit";
+  r.rev[i] = earned ? "won" : "shown";
+  if(earned) r.pot += q.a[i][1];
+  earned ? sDing() : sSoft();
+  commit();
+}
+function hide(i){
+  const r = round(), q = qOf(S);
+  if(!r.rev[i]) return;
+  if(r.rev[i] === "won" && r.awardedTo === null){ r.pot -= q.a[i][1]; if(r.stealDone === "hit") r.stealDone = false; }
+  r.rev[i] = null; commit();
+}
+let xTimer;
+function buzz(){
+  const r = round();
+  if(r.strikes >= 3 && r.awardedTo === null && !r.stealDone) r.stealDone = "miss";
+  const n = r.strikes < 3 ? ++r.strikes : 1;
+  sBuzz();
+  const xo = $("xover");
+  xo.innerHTML = XSVG.repeat(n);
+  xo.classList.remove("show"); void xo.offsetWidth; xo.classList.add("show");
+  clearTimeout(xTimer); xTimer = setTimeout(()=>xo.classList.remove("show"), 1300);
+  commit();
+}
+function unstrike(){ const r = round(); if(r.stealDone === "miss"){ r.stealDone = false; commit(); } else if(r.strikes > 0){ r.strikes--; commit(); } }
+function award(t){
+  const r = round();
+  if(r.pot <= 0 || r.awardedTo !== null) return;
+  S.teams[t].score += r.pot; r.awardedTo = t; sAward(); commit();
+  const card = document.querySelector('.team[data-t="'+t+'"]');
+  card.classList.remove("bump"); void card.offsetWidth; card.classList.add("bump");
+}
+function resetQ(){
+  const r = round();
+  if(r.awardedTo !== null) S.teams[r.awardedTo].score -= r.pot;
+  delete S.rounds[keyOf(S)]; commit();
+}
+function go(i){ const n = SETS[S.set].qs.length; S.idx = Math.max(0, Math.min(n-1, i)); commit(); }
+function setSet(s){ if(SETS[s]){ S.set = s; S.idx = 0; commit(); } }
+function newGame(){ const m = S.muted, names = S.teams.map(t=>t.name); S = freshState(); S.muted = m; S.teams.forEach((t,i)=>t.name = names[i]); commit(); openSetup(); }
+
+function commit(){ save(); render(); broadcast(); }
+
+/* ======================= SYNC ======================= */
+let bc = null;
+try{ bc = new BroadcastChannel("bio-feud-v1"); }catch(e){}
+function broadcast(){ if(!isKey() && bc) bc.postMessage({type:"state", s:S}); }
+function send(cmd, arg){
+  const m = {type:"cmd", cmd, arg, id: Math.random().toString(36).slice(2)};
+  if(bc) bc.postMessage(m);
+  try{ localStorage.setItem(LSCMD, JSON.stringify(m)); }catch(e){}
+}
+let lastCmd = null;
+function handleCmd(m){
+  if(isKey() || !m || m.id === lastCmd) return;
+  lastCmd = m.id;
+  const a = m.arg;
+  switch(m.cmd){
+    case "hello": S.ping = Date.now(); save(); broadcast(); break;
+    case "reveal": reveal(a); break;
+    case "hide": hide(a); break;
+    case "buzz": buzz(); break;
+    case "unstrike": unstrike(); break;
+    case "award": award(a); break;
+    case "reset": resetQ(); break;
+    case "go": go(a); break;
+    case "set": setSet(a); break;
+  }
+}
+if(bc) bc.onmessage = e => {
+  const m = e.data;
+  if(m.type === "cmd") handleCmd(m);
+  else if(m.type === "state" && isKey()) keyState(m.s);
+};
+window.addEventListener("storage", e => {
+  try{
+    if(e.key === LSCMD && e.newValue) handleCmd(JSON.parse(e.newValue));
+    if(e.key === LS && e.newValue && isKey()) keyState(JSON.parse(e.newValue));
+  }catch(err){}
+});
+
+/* ======================= RENDER: BOARD ======================= */
+function fillSelects(setEl, qEl, st){
+  setEl.innerHTML = SETS.map((s,i)=>`<option value="${i}"${i===st.set?" selected":""}>${esc(s.name)}</option>`).join("");
+  qEl.innerHTML = SETS[st.set].qs.map((q,i)=>{
+    const t = q.q.length > 44 ? q.q.slice(0,42) + "…" : q.q;
+    return `<option value="${i}"${i===st.idx?" selected":""}>Q${q.n}: ${esc(t)}</option>`;
+  }).join("");
+}
+function keyRows(q, r, live){
+  return q.a.map(([t,p],i)=>{
+    const st = r ? r.rev[i] : null;
+    return `<div class="krow ${st||""}"><button class="kbtn" data-act="reveal" data-i="${i}"${(st||!live)?" disabled":""}>`+
+      `<span class="kn">${i+1}</span><span class="kt">${esc(t)}</span><span class="kp">${p}</span></button>`+
+      (st && live ? `<button class="khide" data-act="hide" data-i="${i}">Hide</button>` : "") + `</div>`;
+  }).join("");
+}
+function statusText(st, r, q){
+  const left = r.rev.filter(v=>!v).length;
+  const won = r.rev.some(v=>v==="won");
+  if(r.awardedTo !== null) return `${st.teams[r.awardedTo].name} got ${r.pot} points.` + (left ? " Click any covered box to show it." : " Move on when you’re ready.");
+  if(r.strikes >= 3){
+    if(r.stealDone === "hit") return "Steal! Give all the points to the team that stole.";
+    if(r.stealDone === "miss") return "Steal missed. Give the points to the team that had control.";
+    return "Three strikes. The other team gets one steal: click their answer if it’s on the board, or hit the buzzer.";
+  }
+  if(!left) return "Board cleared. Give the points to the team in control.";
+  return "Click a box when a student matches an answer. Wrong answer? Hit the buzzer.";
+}
+
+function buildBoard(){
+  const board = $("board"), q = qOf(S);
+  board.classList.add("noanim");
+  board.innerHTML = q.a.map(([t,p],i)=>
+    `<button class="tile" data-i="${i}" aria-label="Box ${i+1}"><span class="inner">`+
+    `<span class="face front"><span class="num">${i+1}</span></span>`+
+    `<span class="face back"><span class="bn">${i+1}</span><span class="ans">${esc(t)}</span><span class="pts">${p}</span></span>`+
+    `</span></button>`).join("");
+  board.dataset.key = keyOf(S);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>board.classList.remove("noanim")));
+}
+
+function render(){
+  if(isKey()) return;
+  const q = qOf(S), r = round(), set = SETS[S.set];
+  document.querySelectorAll(".team").forEach(card=>{
+    const t = +card.dataset.t, team = S.teams[t];
+    const nm = card.querySelector(".tname"), sc = card.querySelector(".tscore"), aw = card.querySelector(".award");
+    if(document.activeElement !== nm) nm.textContent = team.name;
+    if(document.activeElement !== sc) sc.textContent = team.score;
+    aw.hidden = !(r.pot > 0 && r.awardedTo === null);
+    aw.textContent = `Give ${r.pot} points`;
+  });
+  $("qmeta").textContent = `${set.name}, question ${q.n}`;
+  $("qtext").textContent = q.q;
+  $("pot").textContent = r.pot;
+  $("strikes").innerHTML = [0,1,2].map(i=>`<div class="slot${i<r.strikes?" on":""}"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M22 22L78 78M78 22L22 78" stroke="#fff" stroke-width="16" stroke-linecap="round"/></svg></div>`).join("");
+
+  const board = $("board");
+  if(board.dataset.key !== keyOf(S)) buildBoard();
+  board.querySelectorAll(".tile").forEach((el,i)=>{
+    el.classList.toggle("open", !!r.rev[i]);
+    el.classList.toggle("shown", r.rev[i] === "shown");
+    el.setAttribute("aria-label", r.rev[i] ? `Box ${i+1}: ${q.a[i][0]}, ${q.a[i][1]} points` : `Box ${i+1}, covered`);
+  });
+  board.classList.toggle("over", r.strikes >= 3 || r.awardedTo !== null);
+
+  fillSelects($("setSel"), $("qSel"), S);
+  $("prev").disabled = S.idx === 0;
+  $("next").disabled = S.idx === set.qs.length - 1;
+  $("status").textContent = statusText(S, r, q);
+  $("soundBtn").textContent = S.muted ? "Sound off" : "Sound on";
+
+  $("dQ").textContent = `Q${q.n}. ${q.q}`;
+  $("dRows").innerHTML = keyRows(q, r, true);
+  $("dMeta").innerHTML = `<span>In play: ${r.pot}</span><span>Strikes: ${r.strikes}/3</span>`;
+}
+
+/* ======================= BOARD EVENTS ======================= */
+$("board").addEventListener("click", e=>{
+  const tile = e.target.closest(".tile"); if(!tile) return;
+  const i = +tile.dataset.i;
+  if(e.shiftKey) hide(i); else reveal(i);
+});
+$("buzz").onclick = buzz;
+$("prev").onclick = ()=>go(S.idx-1);
+$("next").onclick = ()=>go(S.idx+1);
+$("setSel").onchange = e=>setSet(+e.target.value);
+$("qSel").onchange = e=>go(+e.target.value);
+$("keyBtn").onclick = ()=>$("drawer").classList.toggle("open");
+$("closeKey").onclick = ()=>$("drawer").classList.remove("open");
+$("soundBtn").onclick = ()=>{ S.muted = !S.muted; commit(); };
+$("cleanBtn").onclick = ()=>$("app").classList.add("clean");
+$("showCtl").onclick = ()=>$("app").classList.remove("clean");
+$("floatBuzz").onclick = buzz;
+$("dUnstrike").onclick = unstrike;
+document.querySelectorAll(".award").forEach(b=>b.onclick=()=>award(+b.dataset.t));
+$("dRows").addEventListener("click", e=>{
+  const b = e.target.closest("[data-act]"); if(!b || b.disabled) return;
+  b.dataset.act === "hide" ? hide(+b.dataset.i) : reveal(+b.dataset.i);
+});
+
+// Two-click confirm for destructive buttons
+function armed(btn, label, armedLabel, fn){
+  let t = null;
+  btn.textContent = label;
+  btn.onclick = ()=>{
+    if(btn.classList.contains("armed")){ clearTimeout(t); btn.classList.remove("armed"); btn.textContent = label; fn(); return; }
+    btn.classList.add("armed"); btn.textContent = armedLabel;
+    t = setTimeout(()=>{ btn.classList.remove("armed"); btn.textContent = label; }, 3000);
+  };
+}
+armed($("resetBtn"), "Reset question", "Click again to reset", resetQ);
+armed($("dNewGame"), "New game", "Click again: scores go to 0", newGame);
+
+// Editable team names and scores
+document.querySelectorAll(".team").forEach(card=>{
+  const t = +card.dataset.t, nm = card.querySelector(".tname"), sc = card.querySelector(".tscore");
+  [nm, sc].forEach(el=>el.addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); el.blur(); } }));
+  nm.addEventListener("blur", ()=>{ S.teams[t].name = nm.textContent.trim() || `Team ${t+1}`; commit(); });
+  sc.addEventListener("blur", ()=>{ const v = parseInt(sc.textContent.replace(/[^\d-]/g,""),10); S.teams[t].score = isNaN(v) ? S.teams[t].score : v; commit(); });
+});
+
+/* ======================= KEY WINDOW ======================= */
+let KS = load() || freshState(), linked = false, helloTimer = null;
+function keyState(s){
+  if(!s || !SETS[s.set]) return;
+  KS = s;
+  if(!linked){ linked = true; clearInterval(helloTimer); }
+  renderKey();
+}
+function kRound(){ return (KS.rounds && KS.rounds[keyOf(KS)]) || blankRound(); }
+function renderKey(){
+  if(!isKey()) return;
+  const q = qOf(KS), r = kRound(), set = SETS[KS.set];
+  $("kvLink").textContent = linked ? "Linked to the board" : "Board not found";
+  $("kvLink").classList.toggle("on", linked);
+  fillSelects($("kvSet"), $("kvQ"), KS);
+  $("kvPrev").disabled = !linked || KS.idx === 0;
+  $("kvNext").disabled = !linked || KS.idx === set.qs.length - 1;
+  $("kvSet").disabled = $("kvQ").disabled = !linked;
+  $("kvQText").textContent = `${set.name}, Q${q.n}. ${q.q}`;
+  $("kvRows").innerHTML = keyRows(q, r, linked);
+  $("kvMeta").innerHTML = `<span>In play: ${r.pot}</span><span>Strikes: ${r.strikes}/3</span>`;
+  const canAward = linked && r.pot > 0 && r.awardedTo === null;
+  [0,1].forEach(t=>{
+    const b = $("kvAward"+t);
+    b.textContent = `Give ${r.pot} to ${KS.teams[t].name}`;
+    b.disabled = !canAward; b.style.display = canAward ? "" : "none";
+  });
+  ["kvBuzz","kvUnstrike","kvReset"].forEach(id=>$(id).disabled = !linked);
+  $("kvStatus").textContent = linked ? statusText(KS, r, q)
+    : "Open this page without #key in another tab or window of this same browser. This key will link to it and control it.";
+}
+$("kvRows").addEventListener("click", e=>{
+  const b = e.target.closest("[data-act]"); if(!b || b.disabled) return;
+  send(b.dataset.act, +b.dataset.i);
+});
+$("kvBuzz").onclick = ()=>send("buzz");
+$("kvUnstrike").onclick = ()=>send("unstrike");
+$("kvAward0").onclick = ()=>send("award", 0);
+$("kvAward1").onclick = ()=>send("award", 1);
+$("kvPrev").onclick = ()=>send("go", KS.idx - 1);
+$("kvNext").onclick = ()=>send("go", KS.idx + 1);
+$("kvSet").onchange = e=>send("set", +e.target.value);
+$("kvQ").onchange = e=>send("go", +e.target.value);
+armed($("kvReset"), "Reset question", "Click again to reset", ()=>send("reset"));
+
+/* ======================= KEYBOARD ======================= */
+document.addEventListener("keydown", e=>{
+  const el = document.activeElement;
+  if(el && (el.isContentEditable || el.tagName === "SELECT" || el.tagName === "INPUT")) return;
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if(isKey()){
+    if(!linked) return;
+    if(k >= "1" && k <= "5") send("reveal", +k - 1);
+    else if(k === "x" || k === "b") send("buzz");
+    else if(e.key === "ArrowRight") send("go", KS.idx + 1);
+    else if(e.key === "ArrowLeft") send("go", KS.idx - 1);
+    return;
+  }
+  if(k >= "1" && k <= "5") reveal(+k - 1);
+  else if(k === "x" || k === "b") buzz();
+  else if(e.key === "ArrowRight") go(S.idx + 1);
+  else if(e.key === "ArrowLeft") go(S.idx - 1);
+  else if(k === "k") $("drawer").classList.toggle("open");
+  else if(k === "h") $("app").classList.toggle("clean");
+  else if(k === "m"){ S.muted = !S.muted; commit(); }
+  else if(e.key === "Escape") $("drawer").classList.remove("open");
+});
+
+/* ======================= SETUP + INTRO ======================= */
+function openSetup(){
+  $("drawer").classList.remove("open");
+  [0,1].forEach(t=>{ const v = S.teams[t].name; $("t"+(t+1)+"in").value = /^Team [12]$/.test(v) ? "" : v; });
+  $("setup").hidden = false;
+  setTimeout(()=>$("t1in").focus(), 50);
+}
+$("setupForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  // The names are saved and used on the board. The intro ignores them on purpose.
+  [0,1].forEach(t=>{ S.teams[t].name = $("t"+(t+1)+"in").value.trim() || `Team ${t+1}`; });
+  S.started = true; commit();
+  $("setup").hidden = true;
+  ac(); playIntro();
+});
+
+const sFanfare = () => {
+  [[523,659,784],[587,740,880],[784,988,1175,1568]].forEach((ch,j)=>
+    ch.forEach(f=>tone(f, j*.22, j===2 ? 1.1 : .2, "triangle", .12)));
+};
+const sSlam = () => { tone(62,0,.55,"sine",.55); tone(124,0,.22,"square",.14,700); tone(1568,.02,.3,"triangle",.08); };
+
+let introTimers = [];
+function playIntro(){
+  const I = $("intro");
+  introTimers.forEach(clearTimeout); introTimers = [];
+  I.querySelectorAll(".on").forEach(el=>el.classList.remove("on"));
+  I.classList.remove("out"); I.hidden = false;
+  const at = (ms, fn) => introTimers.push(setTimeout(fn, ms));
+  const on = (...ids) => ids.forEach(id=>$(id).classList.add("on"));
+  const off = (...ids) => ids.forEach(id=>$(id).classList.remove("on"));
+  const shake = () => { const s = $("stage"); s.classList.remove("shake"); void s.offsetWidth; s.classList.add("shake"); };
+  at(150,  ()=>on("iWelcome"));
+  at(900,  ()=>{ on("iTitle"); sFanfare(); });
+  at(3100, ()=>off("iWelcome","iTitle"));
+  at(3600, ()=>on("iMatch"));
+  at(4500, ()=>{ on("iThis"); sSlam(); shake(); });
+  at(5500, ()=>{ on("iVs"); sSoft(); });
+  at(6300, ()=>{ on("iThat"); sSlam(); shake(); });
+  at(8600, ()=>off("iMatch","iThis","iVs","iThat"));
+  at(9100, ()=>{ on("iPlay"); sAward(); });
+  at(11000, endIntro);
+}
+function endIntro(){
+  introTimers.forEach(clearTimeout); introTimers = [];
+  const I = $("intro");
+  I.classList.add("out");
+  setTimeout(()=>{ I.hidden = true; I.classList.remove("out"); }, 420);
+}
+$("intro").addEventListener("click", endIntro);
+$("dNames").onclick = openSetup;
+$("dIntro").onclick = ()=>{ $("drawer").classList.remove("open"); ac(); playIntro(); };
+document.addEventListener("keydown", e=>{
+  if(!$("intro").hidden && !$("intro").classList.contains("out")){ e.preventDefault(); e.stopImmediatePropagation(); endIntro(); }
+}, true);
+
+/* ======================= MODE ======================= */
+function applyMode(){
+  const key = isKey();
+  $("app").hidden = key; $("showCtl").hidden = key; $("floatBuzz").hidden = key;
+  $("keyview").hidden = !key;
+  document.title = key ? "Answer key: Biology Feud" : "Biology Feud: CFA review";
+  if(key){
+    linked = false; KS = load() || KS; renderKey();
+    clearInterval(helloTimer);
+    send("hello");
+    helloTimer = setInterval(()=>{ if(!linked) send("hello"); else clearInterval(helloTimer); }, 1500);
+  }else{
+    clearInterval(helloTimer);
+    S = load() || S; $("board").dataset.key = ""; render(); broadcast();
+    if(!S.started) openSetup();
+  }
+}
+window.addEventListener("hashchange", applyMode);
+applyMode();
+</script>
+</body>
+</html>
