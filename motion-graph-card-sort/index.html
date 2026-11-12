@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion Graph Card Sort</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --ink: #1d2433;
+    --muted: #5b6475;
+    --line: #d5dae3;
+    --accent: #2f6fdb;
+    --accent-soft: #e5eefc;
+    --good: #1f8a4c;
+    --good-soft: #e3f4ea;
+    --warn: #b26a00;
+    --warn-soft: #fdf1dc;
+    --bad: #c23b3b;
+    --bad-soft: #fbe6e6;
+    --card-w: 120px;
+    --card-h: 93px;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+  }
+  header h1 { font-size: 20px; margin: 0; margin-right: auto; }
+  .name-field { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .name-field input {
+    font: inherit; color: var(--ink); padding: 6px 10px; border: 1px solid var(--line);
+    border-radius: 8px; width: 200px;
+  }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+  button.btn {
+    font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink);
+  }
+  button.btn:hover { background: #eef1f6; }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn.primary:hover { filter: brightness(1.08); }
+  main { max-width: 1240px; margin: 0 auto; padding: 16px 16px 60px; }
+
+  details.instructions {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 10px 16px; margin-bottom: 14px;
+  }
+  details.instructions summary { cursor: pointer; font-weight: 700; }
+  details.instructions ul { margin: 8px 0 4px; padding-left: 20px; }
+  details.instructions li { margin: 3px 0; }
+  .tip { color: var(--muted); font-size: 13.5px; }
+
+  .section-title {
+    display: flex; align-items: baseline; gap: 10px; margin: 6px 2px 8px;
+    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  }
+  .section-title .count { font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+  .bank {
+    background: var(--surface); border: 2px dashed var(--line); border-radius: var(--radius);
+    padding: 10px; min-height: calc(var(--card-h) + 24px);
+    display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start;
+    margin-bottom: 18px;
+  }
+  .bank.empty::after {
+    content: "All cards sorted! Use Check my sort or Save as image when you're done.";
+    color: var(--muted); font-size: 14px; margin: auto;
+  }
+
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(calc(var(--card-w) + 26px), 1fr));
+    gap: 10px;
+  }
+  .col {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    display: flex; flex-direction: column; padding: 8px; min-width: 0;
+  }
+  .col-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; min-height: 22px;
+  }
+  .col-head .remove {
+    border: none; background: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1;
+    padding: 2px 4px; border-radius: 4px;
+  }
+  .col-head .remove:hover { background: var(--bad-soft); color: var(--bad); }
+  .zone {
+    flex: 1; min-height: calc(5 * (var(--card-h) + 6px) + 10px);
+    border-radius: 8px; background: #f7f8fb; padding: 5px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    border: 2px solid transparent; transition: border-color .12s, background .12s;
+  }
+  .bank.over, .zone.over { border-color: var(--accent); background: var(--accent-soft); }
+  .selecting .zone, .selecting .bank { cursor: pointer; }
+  .selecting .zone:hover { border-color: var(--accent); border-style: dashed; }
+  .col textarea {
+    margin-top: 8px; width: 100%; resize: vertical; min-height: 52px;
+    font: inherit; font-size: 13.5px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
+  }
+  .col textarea:focus, .name-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .feedback {
+    margin-top: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 8px; border-radius: 6px; display: none;
+  }
+  .feedback.show { display: block; }
+  .feedback.good { background: var(--good-soft); color: var(--good); }
+  .feedback.warn { background: var(--warn-soft); color: var(--warn); }
+  .feedback.bad { background: var(--bad-soft); color: var(--bad); }
+  .col.good { border-color: var(--good); }
+  .col.bad { border-color: var(--bad); }
+
+  .card {
+    width: var(--card-w); height: var(--card-h); flex: 0 0 auto;
+    background: #fff; border: 1px solid #b9c0cc; border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(20, 30, 50, .12);
+    cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+    padding: 0; position: relative; display: block;
+  }
+  .card svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+  .card:hover { box-shadow: 0 2px 6px rgba(20, 30, 50, .22); }
+  .card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .card.selected { outline: 3px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 6px var(--accent-soft); }
+  .card.dragging { opacity: .3; }
+  .card.insert-before { box-shadow: 0 -5px 0 0 var(--accent); }
+  .ghost {
+    position: fixed; pointer-events: none; z-index: 1000; transform: rotate(-3deg) scale(1.05);
+    box-shadow: 0 10px 24px rgba(20, 30, 50, .3); cursor: grabbing; margin: 0;
+  }
+
+  .summary {
+    margin-top: 14px; padding: 12px 16px; border-radius: var(--radius); font-weight: 600; display: none;
+  }
+  .summary.show { display: block; }
+  .summary.good { background: var(--good-soft); color: var(--good); border: 1px solid var(--good); }
+  .summary.info { background: var(--surface); border: 1px solid var(--line); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px;
+    opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 2000; max-width: 90vw;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  dialog#hintDialog {
+    border: none; border-radius: 14px; padding: 0; width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 40px); color: var(--ink); box-shadow: 0 20px 50px rgba(20, 30, 50, .35);
+  }
+  dialog#hintDialog::backdrop { background: rgba(20, 30, 50, .45); }
+  .hint-body { padding: 18px 22px 16px; }
+  .hint-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .hint-head h2 { margin: 0; font-size: 19px; }
+  .hint-close {
+    border: none; background: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--muted);
+    padding: 2px 6px; border-radius: 6px;
+  }
+  .hint-close:hover { background: #eef1f6; }
+  .hint-body p { margin: 10px 0; }
+  .hint-body h3 { font-size: 15px; margin: 14px 0 6px; }
+  .motions { margin: 6px 0; padding-left: 24px; columns: 2; column-gap: 24px; }
+  .motions li { margin: 3px 0; break-inside: avoid; }
+  .questions { margin: 0; padding-left: 20px; }
+  .questions li { margin: 5px 0; }
+  .hint-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .hint-body .tip { margin: 8px 0 0; }
+  @media (max-width: 520px) { .motions { columns: 1; } }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 640px) {
+    :root { --card-w: 104px; --card-h: 80px; }
+    header { padding: 12px 16px; }
+    .name-field input { width: 150px; }
+    main { padding: 12px 16px 60px; }
+  }
+  @media print {
+    header .toolbar, .tip, details.instructions, .col-head .remove, .bank.empty { display: none !important; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Motion Graph Card Sort</h1>
+  <label class="name-field">Name <input id="studentName" type="text" autocomplete="name" placeholder="Your name"></label>
+  <div class="toolbar">
+    <button class="btn" id="addCol" type="button">+ Column</button>
+    <button class="btn" id="resetBtn" type="button">Start over</button>
+    <button class="btn" id="hintBtn" type="button">Hint</button>
+    <button class="btn" id="checkBtn" type="button">Check my sort</button>
+    <button class="btn primary" id="saveBtn" type="button">Save as image</button>
+  </div>
+</header>
+
+<main>
+  <details class="instructions" open>
+    <summary>Instructions</summary>
+    <ul>
+      <li>Sort the cards into categories. Seven columns are provided, but you can add or remove columns to use as many as you think you need.</li>
+      <li>Type a short description of each category in the box at the bottom of each column you use.</li>
+      <li>Some cards are repeated. This is intentional.</li>
+      <li>The &ldquo;best&rdquo; sort uses all 7 columns, where each column has 5 cards, one of each: <strong>position graph, velocity graph, acceleration graph, direction description, speed description</strong>.</li>
+    </ul>
+    <p class="tip">Drag cards with your mouse or finger, or click a card and then click the column where it goes. Drop a card on top of another card to put it in front of that card. Your work saves automatically in this browser.</p>
+  </details>
+
+  <div class="section-title">Card bank <span class="count" id="bankCount"></span></div>
+  <div class="bank" id="bank" aria-label="Card bank"></div>
+
+  <div class="section-title">Your categories</div>
+  <div class="columns" id="columns"></div>
+
+  <div class="summary" id="summary" role="status"></div>
+</main>
+
+<dialog id="hintDialog" aria-labelledby="hintTitle">
+  <form method="dialog" class="hint-body">
+    <div class="hint-head">
+      <h2 id="hintTitle">Hint: the 7 types of motion</h2>
+      <button class="hint-close" value="close" aria-label="Close hint">&times;</button>
+    </div>
+    <p>Each finished column describes <strong>one</strong> of these seven motions. Your job is to figure out which graphs show each one.</p>
+    <ol class="motions">
+      <li>Moving forward and speeding up</li>
+      <li>Moving forward and slowing down</li>
+      <li>Moving forward at a constant speed</li>
+      <li>Moving backward and speeding up</li>
+      <li>Moving backward and slowing down</li>
+      <li>Moving backward at a constant speed</li>
+      <li>Not moving at all</li>
+    </ol>
+    <h3>Questions to ask yourself</h3>
+    <ul class="questions">
+      <li><strong>Position graph:</strong> Is the position getting bigger, getting smaller, or staying the same? Is it changing faster and faster, slower and slower, or at a steady rate?</li>
+      <li><strong>Velocity graph:</strong> What could it mean when the line is above zero? Below zero? What does it mean when the line moves toward zero or away from zero?</li>
+      <li><strong>Acceleration graph:</strong> Is the velocity changing? If it is, is it going up or going down? (Careful: think about whether that always means &ldquo;speeding up.&rdquo;)</li>
+    </ul>
+    <div class="hint-actions">
+      <button class="btn" type="button" id="startHelpBtn">Help me get started</button>
+      <button class="btn primary" value="close">Got it</button>
+    </div>
+    <p class="tip" id="startHelpNote">&ldquo;Help me get started&rdquo; puts the direction and speed cards into the 7 columns, one motion per column. Your graph cards stay where they are.</p>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr-only" id="live" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Card artwork (redrawn from the original card images) ----------
+  var W = 550, H = 425;
+  var STROKE = 'stroke="#111" stroke-width="3.2" fill="none" stroke-linecap="round"';
+  var AXIS = 'stroke="#111" stroke-width="1.6"';
+
+  function graph(yLabel, mid, plot) {
+    // mid = true -> time axis in the middle (velocity / acceleration)
+    var ax = mid ? 212 : 380;
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<rect width="' + W + '" height="' + H + '" fill="#fff"/>' +
+      '<line x1="107" y1="8" x2="107" y2="416" ' + AXIS + '/>' +
+      '<line x1="70" y1="' + ax + '" x2="478" y2="' + ax + '" ' + AXIS + '/>' +
+      '<text x="0" y="0" transform="translate(97 12) rotate(-90)" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="30">' + yLabel + '</text>' +
+      '<text x="470" y="' + (ax + 32) + '" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="30">Time</text>' +
+      plot + '</svg>';
+    return s;
+  }
+  function path(d) { return '<path d="' + d + '" ' + STROKE + '/>'; }
+  function hline(y) { return path('M107 ' + y + ' L478 ' + y); }
+  function words(lines) {
+    var size = lines.length > 1 ? 74 : 74;
+    var lh = 88, start = H / 2 - ((lines.length - 1) * lh) / 2 + size * 0.36;
+    var t = '';
+    for (var i = 0; i < lines.length; i++) {
+      t += '<text x="' + (W / 2) + '" y="' + (start + i * lh) + '" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="' + size + '" fill="#111">' + lines[i] + '</text>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff"/>' + t + '</svg>';
+  }
+
+  // Motions (hidden answer key):
+  // A fwd speeding up, B fwd slowing, C fwd constant, D back speeding up, E back slowing, F back constant, G at rest
+  var TYPES = {
+    p1: { kind: 'pos', m: 'E', alt: 'Position vs time graph: starts high, decreases, and levels off (curve)', svg: graph('Position', false, path('M107 8 Q292 380 478 380')) },
+    p2: { kind: 'pos', m: 'B', alt: 'Position vs time graph: starts at zero, increases, and levels off (curve)', svg: graph('Position', false, path('M107 380 Q292 8 478 8')) },
+    p3: { kind: 'pos', m: 'D', alt: 'Position vs time graph: starts high and flat, then decreases more and more steeply (curve)', svg: graph('Position', false, path('M107 8 Q292 8 478 380')) },
+    p4: { kind: 'pos', m: 'A', alt: 'Position vs time graph: starts at zero and flat, then increases more and more steeply (curve)', svg: graph('Position', false, path('M107 380 Q292 380 478 8')) },
+    p5: { kind: 'pos', m: 'C', alt: 'Position vs time graph: straight line rising from zero', svg: graph('Position', false, path('M107 380 L478 8')) },
+    p6: { kind: 'pos', m: 'F', alt: 'Position vs time graph: straight line falling to zero', svg: graph('Position', false, path('M107 8 L478 380')) },
+    p7: { kind: 'pos', m: 'G', alt: 'Position vs time graph: flat horizontal line above the time axis', svg: graph('Position', false, hline(240)) },
+    v1: { kind: 'vel', m: 'E', alt: 'Velocity vs time graph: straight line starting below zero, rising to zero', svg: graph('Velocity', true, path('M107 400 L478 212')) },
+    v2: { kind: 'vel', m: 'B', alt: 'Velocity vs time graph: straight line starting above zero, falling to zero', svg: graph('Velocity', true, path('M107 25 L478 212')) },
+    v3: { kind: 'vel', m: 'D', alt: 'Velocity vs time graph: straight line starting at zero, falling below zero', svg: graph('Velocity', true, path('M107 212 L478 400')) },
+    v4: { kind: 'vel', m: 'A', alt: 'Velocity vs time graph: straight line starting at zero, rising above zero', svg: graph('Velocity', true, path('M107 212 L478 25')) },
+    v5: { kind: 'vel', m: 'C', alt: 'Velocity vs time graph: flat line above zero', svg: graph('Velocity', true, hline(100)) },
+    v6: { kind: 'vel', m: 'F', alt: 'Velocity vs time graph: flat line below zero', svg: graph('Velocity', true, hline(324)) },
+    v7: { kind: 'vel', m: 'G', alt: 'Velocity vs time graph: flat line on the time axis (zero)', svg: graph('Velocity', true, hline(212)) },
+    aPos: { kind: 'acc', m: 'AE', alt: 'Acceleration vs time graph: flat line above zero', svg: graph('Acceleration', true, hline(100)) },
+    aNeg: { kind: 'acc', m: 'BD', alt: 'Acceleration vs time graph: flat line below zero', svg: graph('Acceleration', true, hline(324)) },
+    aZero: { kind: 'acc', m: 'CFG', alt: 'Acceleration vs time graph: flat line on the time axis (zero)', svg: graph('Acceleration', true, hline(212)) },
+    dFwd: { kind: 'dir', m: 'ABC', alt: 'Moving Forward', svg: words(['Moving Forward']) },
+    dBack: { kind: 'dir', m: 'DEF', alt: 'Moving Backward', svg: words(['Moving', 'Backward']) },
+    dNone: { kind: 'dir', m: 'G', alt: 'Not Moving', svg: words(['Not Moving']) },
+    sUp: { kind: 'spd', m: 'AD', alt: 'Speeding Up', svg: words(['Speeding Up']) },
+    sDown: { kind: 'spd', m: 'BE', alt: 'Slowing Down', svg: words(['Slowing Down']) },
+    sConst: { kind: 'spd', m: 'CFG', alt: 'Constant Speed', svg: words(['Constant Speed']) }
+  };
+  var DECK = ['p1','p2','p3','p4','p5','p6','p7','v1','v2','v3','v4','v5','v6','v7',
+    'aPos','aPos','aNeg','aNeg','aZero','aZero','aZero',
+    'dFwd','dFwd','dFwd','dBack','dBack','dBack','dNone',
+    'sUp','sUp','sDown','sDown','sConst','sConst','sConst'];
+  var KIND_NAMES = { pos: 'position graph', vel: 'velocity graph', acc: 'acceleration graph', dir: 'direction card', spd: 'speed card' };
+
+  var CHECK_ENABLED = !/[?&]check=(0|off|false|no)\b/i.test(location.search);
+  var STORE_KEY = 'motion-graph-card-sort-v1';
+
+  // ---------- State ----------
+  // cards: [{id, type}] ; state.bank: [ids]; state.cols: [{cards:[ids], label:''}]
+  var cards = DECK.map(function (t, i) { return { id: 'c' + i, type: t }; });
+  var byId = {}; cards.forEach(function (c) { byId[c.id] = c; });
+  var state;
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function freshState() {
+    var cols = []; for (var i = 0; i < 7; i++) cols.push({ cards: [], label: '' });
+    return { name: (state && state.name) || '', bank: shuffle(cards.map(function (c) { return c.id; })), cols: cols };
+  }
+  function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (!s || !Array.isArray(s.bank) || !Array.isArray(s.cols)) return null;
+      var seen = {}, ok = true;
+      s.bank.concat.apply(s.bank, s.cols.map(function (c) { return c.cards; })).forEach(function (id) {
+        if (!byId[id] || seen[id]) ok = false; seen[id] = 1;
+      });
+      if (!ok || Object.keys(seen).length !== cards.length) return null;
+      return s;
+    } catch (e) { return null; }
+  }
+
+  // ---------- Rendering ----------
+  var bankEl = document.getElementById('bank');
+  var colsEl = document.getElementById('columns');
+  var cardEls = {};
+  var selectedId = null;
+
+  cards.forEach(function (c) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'card';
+    b.dataset.id = c.id;
+    b.setAttribute('aria-label', TYPES[c.type].alt);
+    b.innerHTML = TYPES[c.type].svg;
+    cardEls[c.id] = b;
+  });
+
+  function render() {
+    bankEl.innerHTML = '';
+    state.bank.forEach(function (id) { bankEl.appendChild(cardEls[id]); });
+    bankEl.classList.toggle('empty', state.bank.length === 0);
+    document.getElementById('bankCount').textContent = state.bank.length + ' of ' + cards.length + ' cards left';
+
+    colsEl.innerHTML = '';
+    state.cols.forEach(function (col, i) {
+      var c = document.createElement('section');
+      c.className = 'col';
+      c.dataset.col = i;
+      c.innerHTML = '<div class="col-head"><span>Column ' + (i + 1) + ' <span style="font-weight:500">(' + col.cards.length + ')</span></span>' +
+        '<button class="remove" type="button" title="Remove this column" aria-label="Remove column ' + (i + 1) + '">&times;</button></div>' +
+        '<div class="zone" data-zone="' + i + '" aria-label="Column ' + (i + 1) + ' drop area"></div>' +
+        '<textarea placeholder="Describe this category&hellip;" aria-label="Description for column ' + (i + 1) + '"></textarea>' +
+        '<div class="feedback"></div>';
+      var zone = c.querySelector('.zone');
+      col.cards.forEach(function (id) { zone.appendChild(cardEls[id]); });
+      var ta = c.querySelector('textarea');
+      ta.value = col.label || '';
+      ta.addEventListener('input', function () { state.cols[i].label = ta.value; save(); });
+      c.querySelector('.remove').addEventListener('click', function () { removeColumn(i); });
+      colsEl.appendChild(c);
+    });
+    bankEl.dataset.zone = 'bank';
+    clearFeedback();
+    Object.keys(cardEls).forEach(function (id) { cardEls[id].classList.toggle('selected', id === selectedId); });
+    document.body.classList.toggle('selecting', !!selectedId);
+  }
+
+  function listFor(zone) { return zone === 'bank' ? state.bank : state.cols[+zone].cards; }
+  function locate(id) {
+    if (state.bank.indexOf(id) > -1) return 'bank';
+    for (var i = 0; i < state.cols.length; i++) if (state.cols[i].cards.indexOf(id) > -1) return String(i);
+    return null;
+  }
+  function moveCard(id, zone, beforeId) {
+    var from = listFor(locate(id));
+    from.splice(from.indexOf(id), 1);
+    var to = listFor(zone);
+    var idx = beforeId ? to.indexOf(beforeId) : -1;
+    if (idx < 0) to.push(id); else to.splice(idx, 0, id);
+    selectedId = null;
+    save(); render();
+    announce('Moved card to ' + (zone === 'bank' ? 'the card bank' : 'column ' + (+zone + 1)) + '.');
+    var el = cardEls[id]; if (el) el.focus({ preventScroll: true });
+  }
+  function removeColumn(i) {
+    var col = state.cols[i];
+    if (col.cards.length && !confirmSoft('Column ' + (i + 1) + ' has cards in it. They will go back to the card bank.')) return;
+    state.bank = state.bank.concat(col.cards);
+    state.cols.splice(i, 1);
+    save(); render();
+  }
+  function confirmSoft(msg) { return window.confirm(msg + ' Continue?'); }
+
+  // ---------- Drag & drop (pointer events: mouse, touch, pen) ----------
+  var drag = null;
+
+  document.addEventListener('pointerdown', function (e) {
+    var card = e.target.closest('.card');
+    if (!card || e.button > 0) return;
+    drag = { id: card.dataset.id, el: card, x: e.clientX, y: e.clientY, started: false, pid: e.pointerId };
+  });
+
+  document.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.pid) return;
+    if (!drag.started) {
+      if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 6) return;
+      drag.started = true;
+      var r = drag.el.getBoundingClientRect();
+      drag.offX = drag.x - r.left; drag.offY = drag.y - r.top;
+      var g = drag.el.cloneNode(true);
+      g.classList.remove('selected');
+      g.classList.add('ghost');
+      g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+      document.body.appendChild(g);
+      drag.ghost = g;
+      drag.el.classList.add('dragging');
+      selectedId = null; document.body.classList.remove('selecting');
+      Object.keys(cardEls).forEach(function (id) { cardEls[id].classList.remove('selected'); });
+    }
+    e.preventDefault();
+    drag.ghost.style.left = (e.clientX - drag.offX) + 'px';
+    drag.ghost.style.top = (e.clientY - drag.offY) + 'px';
+    drag.lastY = e.clientY;
+    updateTarget(e.clientX, e.clientY);
+    autoScroll();
+  }, { passive: false });
+
+  function updateTarget(x, y) {
+    var under = document.elementFromPoint(x, y);
+    var zoneEl = under && under.closest('[data-zone]');
+    if (!zoneEl && under) { var colEl = under.closest('.col'); if (colEl) zoneEl = colEl.querySelector('.zone'); }
+    var overCard = under && under.closest('.card');
+    if (overCard && (overCard === drag.el || overCard.classList.contains('ghost'))) overCard = null;
+    document.querySelectorAll('.over').forEach(function (n) { n.classList.remove('over'); });
+    document.querySelectorAll('.insert-before').forEach(function (n) { n.classList.remove('insert-before'); });
+    if (zoneEl) zoneEl.classList.add('over');
+    if (overCard && zoneEl && zoneEl.dataset.zone !== 'bank') overCard.classList.add('insert-before');
+    drag.zone = zoneEl ? zoneEl.dataset.zone : null;
+    drag.before = overCard ? overCard.dataset.id : null;
+  }
+
+  function autoScroll() {
+    if (!drag || !drag.started) return;
+    cancelAnimationFrame(drag.raf);
+    var edge = 70, y = drag.lastY, h = window.innerHeight, dy = 0;
+    if (y < edge) dy = -Math.ceil((edge - y) / 4);
+    else if (y > h - edge) dy = Math.ceil((y - (h - edge)) / 4);
+    if (dy) {
+      window.scrollBy(0, dy);
+      drag.raf = requestAnimationFrame(autoScroll);
+    }
+  }
+
+  function endDrag(e, cancelled) {
+    if (!drag || (e && e.pointerId !== drag.pid)) return;
+    var d = drag; drag = null;
+    cancelAnimationFrame(d.raf);
+    document.querySelectorAll('.over').forEach(function (n) { n.classList.remove('over'); });
+    document.querySelectorAll('.insert-before').forEach(function (n) { n.classList.remove('insert-before'); });
+    if (!d.started) return; // treated as a click
+    d.ghost.remove();
+    d.el.classList.remove('dragging');
+    // swallow the click that some browsers fire right after a drag, but never a later real click
+    suppressNextClick = true;
+    setTimeout(function () { suppressNextClick = false; }, 0);
+    if (!cancelled && d.zone != null) moveCard(d.id, d.zone, d.before);
+  }
+  var suppressNextClick = false;
+  document.addEventListener('pointerup', function (e) { endDrag(e, false); });
+  document.addEventListener('pointercancel', function (e) { endDrag(e, true); });
+
+  // ---------- Click / tap to move (also keyboard: Enter/Space on a card) ----------
+  document.addEventListener('click', function (e) {
+    if (suppressNextClick) { suppressNextClick = false; return; }
+    var card = e.target.closest('.card');
+    if (card) {
+      var id = card.dataset.id;
+      if (selectedId && selectedId !== id) {
+        var zone = locate(id);
+        if (zone !== 'bank') { moveCard(selectedId, zone, id); return; }
+      }
+      selectedId = selectedId === id ? null : id;
+      Object.keys(cardEls).forEach(function (k) { cardEls[k].classList.toggle('selected', k === selectedId); });
+      document.body.classList.toggle('selecting', !!selectedId);
+      if (selectedId) announce('Card selected. Now click a column to place it.');
+      return;
+    }
+    if (!selectedId) return;
+    if (e.target.closest('textarea, button, input')) return;
+    var z = e.target.closest('[data-zone]') || (e.target.closest('.col') && e.target.closest('.col').querySelector('.zone'));
+    if (z) moveCard(selectedId, z.dataset.zone, null);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && selectedId) {
+      selectedId = null; render();
+    }
+    // keyboard placement: with a card selected, press 1-9 to send it to that column, 0 for the bank
+    if (selectedId && /^[0-9]$/.test(e.key) && !e.target.closest('textarea, input')) {
+      var n = +e.key;
+      if (n === 0) moveCard(selectedId, 'bank', null);
+      else if (n <= state.cols.length) moveCard(selectedId, String(n - 1), null);
+    }
+  });
+
+  // ---------- Checking ----------
+  function evaluateColumn(ids) {
+    var kinds = {}, motions = 'ABCDEFG';
+    ids.forEach(function (id) {
+      var t = TYPES[byId[id].type];
+      kinds[t.kind] = (kinds[t.kind] || 0) + 1;
+      motions = motions.split('').filter(function (m) { return t.m.indexOf(m) > -1; }).join('');
+    });
+    var dupKinds = Object.keys(kinds).filter(function (k) { return kinds[k] > 1; });
+    var missing = Object.keys(KIND_NAMES).filter(function (k) { return !kinds[k]; });
+    return { n: ids.length, dupKinds: dupKinds, missing: missing, consistent: motions.length > 0 };
+  }
+
+  function clearFeedback() {
+    document.querySelectorAll('.col').forEach(function (c) {
+      c.classList.remove('good', 'bad');
+      var f = c.querySelector('.feedback'); f.className = 'feedback'; f.textContent = '';
+    });
+    var s = document.getElementById('summary'); s.className = 'summary'; s.textContent = '';
+  }
+
+  function check() {
+    render();
+    var perfect = 0, used = 0;
+    state.cols.forEach(function (col, i) {
+      var c = colsEl.children[i], f = c.querySelector('.feedback');
+      if (!col.cards.length) return;
+      used++;
+      var r = evaluateColumn(col.cards), msg, cls;
+      if (r.dupKinds.length) {
+        cls = 'warn'; msg = 'Has more than one ' + r.dupKinds.map(function (k) { return KIND_NAMES[k]; }).join(' and ') + '.';
+      } else if (!r.consistent) {
+        cls = 'bad'; msg = 'These cards don’t all describe the same motion.';
+      } else if (r.missing.length) {
+        cls = 'warn'; msg = 'So far so good. Still needs: ' + r.missing.map(function (k) { return KIND_NAMES[k]; }).join(', ') + '.';
+      } else {
+        cls = 'good'; msg = '✓ All five cards match!'; perfect++;
+      }
+      f.className = 'feedback show ' + cls; f.textContent = msg;
+      if (cls === 'good') c.classList.add('good');
+      if (cls === 'bad') c.classList.add('bad');
+    });
+    var s = document.getElementById('summary');
+    if (perfect === 7 && state.bank.length === 0) {
+      s.className = 'summary show good';
+      s.textContent = 'Excellent! All 7 columns are complete and consistent. Make sure each column has a description, then save your work as an image.';
+    } else {
+      s.className = 'summary show info';
+      s.textContent = perfect + ' of 7 columns complete and consistent.' + (state.bank.length ? ' ' + state.bank.length + ' card' + (state.bank.length === 1 ? '' : 's') + ' still in the bank.' : '');
+    }
+    announce(s.textContent);
+  }
+
+  // ---------- Save as image ----------
+  function loadImg(svg) {
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      img.onload = function () { res(img); };
+      img.onerror = rej;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+  }
+  function wrapText(ctx, text, maxW) {
+    var out = [];
+    String(text || '').split(/\n/).forEach(function (para) {
+      var line = '';
+      para.split(/\s+/).forEach(function (w) {
+        var test = line ? line + ' ' + w : w;
+        if (ctx.measureText(test).width > maxW && line) { out.push(line); line = w; } else line = test;
+      });
+      out.push(line);
+    });
+    return out;
+  }
+  function saveImage() {
+    var types = {};
+    cards.forEach(function (c) { types[c.type] = 1; });
+    var keys = Object.keys(types);
+    Promise.all(keys.map(function (k) { return loadImg(TYPES[k].svg); })).then(function (imgs) {
+      var img = {}; keys.forEach(function (k, i) { img[k] = imgs[i]; });
+      var S = 2, cw = 176, ch = 136, gap = 14, pad = 24, colW = cw + 20;
+      var nCols = Math.max(state.cols.length, 1);
+      var maxCards = Math.max(5, Math.max.apply(null, state.cols.map(function (c) { return c.cards.length; }).concat([0])));
+      var ctx0 = document.createElement('canvas').getContext('2d');
+      ctx0.font = '15px Arial';
+      var labelLines = state.cols.map(function (c) { return wrapText(ctx0, c.label || '(no description)', colW - 16); });
+      var maxLabel = Math.max.apply(null, labelLines.map(function (l) { return l.length; }).concat([1]));
+      var width = pad * 2 + nCols * colW + (nCols - 1) * gap;
+      var colH = 34 + maxCards * (ch + 8) + 10 + maxLabel * 19 + 16;
+      var height = pad + 64 + colH + pad + (state.bank.length ? 30 : 0);
+      var cv = document.createElement('canvas');
+      cv.width = width * S; cv.height = height * S;
+      var ctx = cv.getContext('2d');
+      ctx.scale(S, S);
+      ctx.fillStyle = '#f4f6f9'; ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#1d2433'; ctx.font = 'bold 24px Arial'; ctx.textBaseline = 'top';
+      ctx.fillText('Motion Graph Card Sort', pad, pad);
+      ctx.font = '16px Arial'; ctx.fillStyle = '#5b6475';
+      ctx.fillText('Name: ' + (state.name || '________________') + '     Date: ' + new Date().toLocaleDateString(), pad, pad + 34);
+      var top = pad + 64;
+      state.cols.forEach(function (col, i) {
+        var x = pad + i * (colW + gap);
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#d5dae3'; ctx.lineWidth = 1;
+        roundRect(ctx, x, top, colW, colH, 10); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#5b6475'; ctx.font = 'bold 14px Arial';
+        ctx.fillText('Column ' + (i + 1), x + 10, top + 10);
+        col.cards.forEach(function (id, j) {
+          var y = top + 34 + j * (ch + 8);
+          ctx.drawImage(img[byId[id].type], x + 10, y, cw, ch);
+          ctx.strokeStyle = '#b9c0cc'; ctx.strokeRect(x + 10.5, y + .5, cw - 1, ch - 1);
+        });
+        var ly = top + 34 + maxCards * (ch + 8) + 6;
+        ctx.strokeStyle = '#d5dae3'; ctx.beginPath(); ctx.moveTo(x + 8, ly); ctx.lineTo(x + colW - 8, ly); ctx.stroke();
+        ctx.fillStyle = col.label ? '#1d2433' : '#9aa1ad'; ctx.font = '15px Arial';
+        labelLines[i].forEach(function (l, k) { ctx.fillText(l, x + 8, ly + 8 + k * 19); });
+      });
+      if (state.bank.length) {
+        ctx.fillStyle = '#b26a00'; ctx.font = 'bold 15px Arial';
+        ctx.fillText(state.bank.length + ' card(s) left unsorted in the card bank.', pad, top + colH + 12);
+      }
+      var name = (state.name || 'my').trim().replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-') || 'my';
+      cv.toBlob(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Motion-Graph-Card-Sort-' + name + '.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        toast('Image saved to your downloads. Upload it to submit your work.');
+      }, 'image/png');
+    }).catch(function () { toast('Sorry, the image could not be created in this browser. Try taking a screenshot instead.'); });
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  // ---------- Misc ----------
+  var toastTimer;
+  function toast(msg) {
+    var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 3500);
+  }
+  function announce(msg) { var l = document.getElementById('live'); l.textContent = ''; setTimeout(function () { l.textContent = msg; }, 30); }
+
+  document.getElementById('addCol').addEventListener('click', function () {
+    state.cols.push({ cards: [], label: '' }); save(); render();
+  });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    if (!window.confirm('Start over? All cards go back to the bank and your descriptions are cleared.')) return;
+    state = freshState(); selectedId = null; save(); render();
+  });
+  var checkBtn = document.getElementById('checkBtn');
+  if (CHECK_ENABLED) checkBtn.addEventListener('click', check); else checkBtn.remove();
+  document.getElementById('saveBtn').addEventListener('click', saveImage);
+
+  // ---------- Hint + "Help me get started" ----------
+  var hintDialog = document.getElementById('hintDialog');
+  document.getElementById('hintBtn').addEventListener('click', function () {
+    selectedId = null; render();
+    if (hintDialog.showModal) hintDialog.showModal(); else hintDialog.setAttribute('open', '');
+  });
+  hintDialog.addEventListener('click', function (e) { if (e.target === hintDialog) hintDialog.close(); });
+
+  // One direction + one speed card per motion (A..G order)
+  var STARTER = [['dFwd', 'sUp'], ['dFwd', 'sDown'], ['dFwd', 'sConst'],
+    ['dBack', 'sUp'], ['dBack', 'sDown'], ['dBack', 'sConst'], ['dNone', 'sConst']];
+
+  document.getElementById('startHelpBtn').addEventListener('click', function () {
+    var isText = function (id) { var k = TYPES[byId[id].type].kind; return k === 'dir' || k === 'spd'; };
+    // Pull every direction/speed card out of wherever it is; graph cards stay put.
+    var pool = {};
+    state.bank = state.bank.filter(function (id) { if (isText(id)) { (pool[byId[id].type] = pool[byId[id].type] || []).push(id); return false; } return true; });
+    state.cols.forEach(function (col) {
+      col.cards = col.cards.filter(function (id) { if (isText(id)) { (pool[byId[id].type] = pool[byId[id].type] || []).push(id); return false; } return true; });
+    });
+    while (state.cols.length < 7) state.cols.push({ cards: [], label: '' });
+    // Put each pair at the bottom of columns 1-7 (graph cards in those columns stay above them).
+    STARTER.forEach(function (pair, i) {
+      pair.forEach(function (t) { state.cols[i].cards.push(pool[t].shift()); });
+    });
+    selectedId = null; save(); render();
+    if (hintDialog.close) hintDialog.close(); else hintDialog.removeAttribute('open');
+    toast('Direction and speed cards placed. Now find the graphs that match each column!');
+    announce('Direction and speed cards were placed in columns 1 through 7.');
+  });
+  var nameEl = document.getElementById('studentName');
+  nameEl.addEventListener('input', function () { state.name = nameEl.value; save(); });
+
+  state = load() || freshState();
+  nameEl.value = state.name || '';
+  render();
+})();
+</script>
+</body>
+</html>
