@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GACA Mandelbrot Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap">
+<style>
+/* Layout: one full-bleed fractal canvas, a small floating control card in the top-left. Single dark brand look (Pearson Purple). */
+:root {
+  --pearson: #0D004D;   /* primary text color / ground */
+  --amethyst: #512EAB;
+  --light: #C1BFFF;     /* Light Purple (primary lavender) */
+  --mist: #EDECF6;
+  --fuchsia: #DF41CF;
+  --amber: #FFCE00;
+  --turquoise: #56E2E1;
+  --white: #FFFFFF;
+  --font: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+body { background: var(--pearson); color: var(--mist); font-family: var(--font); overflow: hidden; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+#sel {
+  position: fixed; pointer-events: none;
+  border: 2px solid var(--white);
+  outline: 1px solid var(--pearson);
+  background: rgba(193, 191, 255, 0.16);
+  box-shadow: 0 0 0 9999px rgba(13, 0, 77, 0.35);
+}
+#sel span {
+  position: absolute; left: -2px; bottom: calc(100% + 6px);
+  background: var(--amber); color: var(--pearson);
+  font: 800 12px/1 var(--font); padding: 5px 8px; border-radius: 4px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.card {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  max-width: calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: rgba(13, 0, 77, 0.82);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(193, 191, 255, 0.35);
+  border-radius: 14px; padding: 12px 14px;
+  box-shadow: 0 10px 30px rgba(13, 0, 77, 0.45);
+}
+.brand { display: flex; flex-direction: column; gap: 3px; }
+.brand b { font-weight: 800; font-size: 16px; color: var(--white); letter-spacing: -0.01em; }
+.brand small { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--light); }
+.stat { display: flex; flex-direction: column; gap: 3px; padding-left: 14px; border-left: 1px solid rgba(193, 191, 255, 0.3); }
+.stat small { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--light); }
+.stat output { font-weight: 800; font-size: 15px; color: var(--white); font-variant-numeric: tabular-nums; }
+#reset {
+  font: 800 14px/1 var(--font); color: var(--pearson); background: var(--amber);
+  border: 0; border-radius: 999px; padding: 10px 18px; cursor: pointer;
+}
+#reset:hover { background: #FFE67F; }
+#reset:focus-visible { outline: 3px solid var(--turquoise); outline-offset: 2px; }
+.hint {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: 50%; transform: translateX(-50%);
+  background: rgba(13, 0, 77, 0.8); color: var(--mist);
+  border: 1px solid rgba(193, 191, 255, 0.3);
+  font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 999px;
+  pointer-events: none; white-space: nowrap; transition: opacity .6s;
+}
+.bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--turquoise); width: 0; transition: width .15s, opacity .4s; }
+@media (prefers-reduced-motion: reduce) { .hint, .bar { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="view" aria-label="Mandelbrot set. Click and drag to select an area to zoom into."></canvas>
+<div id="sel" hidden><span id="selLabel"></span></div>
+<div class="bar" id="bar"></div>
+
+<div class="card">
+  <div class="brand"><b>Mandelbrot Explorer</b><small>GACA</small></div>
+  <div class="stat"><small>Magnification</small><output id="zoom">1×</output></div>
+  <button id="reset" type="button">Reset</button>
+</div>
+<div class="hint" id="hint">Click and drag to zoom in</div>
+
+<script>
+(() => {
+  // ---------- Brand palette gradient ----------
+  const STOPS = [
+    [0.00, "#0D004D"], [0.14, "#512EAB"], [0.28, "#C1BFFF"], [0.38, "#EDECF6"],
+    [0.48, "#56E2E1"], [0.60, "#512EAB"], [0.74, "#DF41CF"], [0.86, "#FFCE00"], [1.00, "#0D004D"]
+  ];
+  const INSIDE = [13, 0, 77];
+  const LUT_N = 2048, LUT = new Uint8Array(LUT_N * 3);
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  for (let i = 0; i < LUT_N; i++) {
+    const t = i / (LUT_N - 1);
+    let k = 0; while (k < STOPS.length - 2 && t > STOPS[k + 1][0]) k++;
+    const [t0, c0] = STOPS[k], [t1, c1] = STOPS[k + 1];
+    const f = (t - t0) / (t1 - t0), a = hex(c0), b = hex(c1);
+    for (let j = 0; j < 3; j++) LUT[i * 3 + j] = Math.round(a[j] + (b[j] - a[j]) * f);
+  }
+
+  // ---------- Worker (perturbation renderer with rebasing) ----------
+  const workerSrc = `
+    let ref = null, refLen = 0, job = -1;
+    onmessage = (e) => {
+      const d = e.data;
+      if (d.type === 'setup') { ref = d.ref; refLen = d.refLen; job = d.job; return; }
+      const { y0, y1, W, H, step, px, maxIter } = d;
+      const cols = Math.ceil(W / step), rows = Math.ceil((y1 - y0) / step);
+      const out = new Float32Array(cols * rows);
+      const B = 1e6, last = refLen - 1;
+      for (let r = 0; r < rows; r++) {
+        const py = y0 + r * step;
+        const dci = (H / 2 - py) * px;
+        for (let c = 0; c < cols; c++) {
+          const dcr = (c * step - W / 2) * px;
+          let dzr = 0, dzi = 0, m = 0, n = 0, res = -1;
+          while (n < maxIter) {
+            const Zr = ref[2 * m], Zi = ref[2 * m + 1];
+            const nr = 2 * (Zr * dzr - Zi * dzi) + dzr * dzr - dzi * dzi + dcr;
+            const ni = 2 * (Zr * dzi + Zi * dzr) + 2 * dzr * dzi + dci;
+            dzr = nr; dzi = ni; m++; n++;
+            const zr = ref[2 * m] + dzr, zi = ref[2 * m + 1] + dzi;
+            const r2 = zr * zr + zi * zi;
+            if (r2 > B) { res = n + 1 - Math.log2(Math.log2(r2) / 2); break; }
+            if (m >= last || r2 < dzr * dzr + dzi * dzi) { dzr = zr; dzi = zi; m = 0; }
+          }
+          out[r * cols + c] = res;
+        }
+      }
+      postMessage({ job: d.job, y0, y1, step, cols, rows, out }, [out.buffer]);
+    };`;
+  const NW = Math.max(2, Math.min(12, (navigator.hardwareConcurrency || 4)));
+  const workerURL = URL.createObjectURL(new Blob([workerSrc], { type: "text/javascript" }));
+  const workers = Array.from({ length: NW }, () => new Worker(workerURL));
+
+  // ---------- Arbitrary-precision view state ----------
+  const canvas = document.getElementById("view");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, dpr = 1;
+  let P = 64;                 // fixed-point bits
+  let cx = 0n, cy = 0n;       // center, scaled by 2^P
+  let px = 0.01;              // complex units per canvas pixel
+  let basePx = 0.01;
+
+  const mulPow2 = (x, k) => { while (k > 1000) { x *= 2 ** 1000; k -= 1000; } while (k < -1000) { x *= 2 ** -1000; k += 1000; } return x * 2 ** k; };
+  function dblToFixed(v) {
+    if (v === 0) return 0n;
+    const sh = 52 - Math.floor(Math.log2(Math.abs(v)));
+    const bi = BigInt(Math.round(mulPow2(v, sh)));
+    const d = P - sh;
+    return d >= 0 ? bi << BigInt(d) : bi >> BigInt(-d);
+  }
+  function setPrecision() {
+    const need = Math.max(64, Math.ceil(-Math.log2(px)) + 64);
+    if (need > P) { const s = BigInt(need - P); cx <<= s; cy <<= s; P = need; }
+  }
+  const fixedToDbl = (v) => Number(v >> BigInt(P - 60)) / 2 ** 60;
+
+  function resetView() {
+    P = 64; cx = dblToFixed(-0.65); cy = 0n;
+    basePx = px = Math.max(3.3 / W, 2.6 / H);
+  }
+
+  function maxIterFor() {
+    const mag = Math.max(1, basePx / px);
+    return Math.min(30000, Math.floor(300 + 140 * Math.log10(mag) + 6 * Math.log10(mag) ** 2));
+  }
+
+  function referenceOrbit(maxIter) {
+    const one = 1n << BigInt(P), four = 4n << BigInt(P), Pb = BigInt(P);
+    const out = new Float64Array(2 * (maxIter + 2));
+    let x = 0n, y = 0n, len = 1;               // Z_0 = 0
+    for (let i = 0; i < maxIter; i++) {
+      const x2 = (x * x) >> Pb, y2 = (y * y) >> Pb;
+      const ny = ((2n * x * y) >> Pb) + cy;
+      x = x2 - y2 + cx; y = ny;
+      out[2 * len] = fixedToDbl(x); out[2 * len + 1] = fixedToDbl(y); len++;
+      if (((x * x) >> Pb) + ((y * y) >> Pb) > four) break;
+    }
+    void one;
+    return { ref: out.subarray(0, 2 * len).slice(), len };
+  }
+
+  // ---------- Render scheduler ----------
+  let job = 0, img = null, queue = [], busy = 0, total = 0, done = 0;
+  const bar = document.getElementById("bar");
+
+  function render() {
+    job++;
+    setPrecision();
+    const maxIter = maxIterFor();
+    const { ref, len } = referenceOrbit(maxIter);
+    for (const w of workers) w.postMessage({ type: "setup", ref, refLen: len, job });
+    queue = [];
+    for (const step of [4, 1]) {
+      const bh = step === 4 ? 64 : 16;
+      const bands = [];
+      for (let y = 0; y < H; y += bh) bands.push({ y0: y, y1: Math.min(H, y + bh) });
+      bands.sort((a, b) => Math.abs((a.y0 + a.y1) / 2 - H / 2) - Math.abs((b.y0 + b.y1) / 2 - H / 2));
+      for (const b of bands) queue.push({ ...b, step, W, H, px, maxIter, job });
+    }
+    total = queue.length; done = 0; busy = 0;
+    bar.style.opacity = 1; bar.style.width = "0%";
+    workers.forEach(w => dispatch(w));
+  }
+  function dispatch(w) {
+    const t = queue.shift();
+    if (!t) return;
+    w._busy = true; w.postMessage(t);
+  }
+  workers.forEach(w => {
+    w.onmessage = (e) => {
+      const d = e.data; w._busy = false;
+      if (d.job === job) { paint(d); done++; bar.style.width = (100 * done / total) + "%"; if (done === total) setTimeout(() => (bar.style.opacity = 0), 250); }
+      dispatch(w);
+    };
+  });
+
+  function paint({ y0, y1, step, cols, rows, out }) {
+    const data = img.data;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const v = out[r * cols + c];
+        let R, G, B;
+        if (v < 0) { [R, G, B] = INSIDE; }
+        else {
+          let t = Math.log2(Math.max(0, v) + 1) * 0.32 - 0.36; t -= Math.floor(t);
+          const i = (t * (LUT_N - 1)) | 0; R = LUT[i * 3]; G = LUT[i * 3 + 1]; B = LUT[i * 3 + 2];
+        }
+        const ys = y0 + r * step, xs = c * step;
+        for (let yy = ys; yy < Math.min(ys + step, y1); yy++) {
+          let o = (yy * W + xs) * 4;
+          for (let xx = xs; xx < Math.min(xs + step, W); xx++) { data[o] = R; data[o + 1] = G; data[o + 2] = B; data[o + 3] = 255; o += 4; }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0, 0, y0, W, y1 - y0);
+  }
+
+  // ---------- Sizing ----------
+  function resize(keepView) {
+    const oldW = W, oldH = H;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, Math.round(innerWidth * dpr)); H = Math.max(1, Math.round(innerHeight * dpr));
+    canvas.width = W; canvas.height = H;
+    img = ctx.createImageData(W, H);
+    if (keepView && oldW) {
+      // keep the same center and magnification
+      const ratio = basePx / px;
+      basePx = Math.max(3.3 / W, 2.6 / H);
+      px = basePx / ratio;
+    } else resetView();
+    updateZoom(); render();
+  }
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => resize(true), 200); });
+
+  // ---------- Zoom readout ----------
+  const zoomEl = document.getElementById("zoom");
+  function fmtMag(m) {
+    if (m < 1000) return (m < 10 ? m.toFixed(1) : Math.round(m).toLocaleString()) + "×";
+    const e = Math.floor(Math.log10(m)), man = m / 10 ** e;
+    const sup = String(e).split("").map(ch => "⁰¹²³⁴⁵⁶⁷⁸⁹"[+ch]).join("");
+    return man.toFixed(1) + " × 10" + sup;
+  }
+  function updateZoom() { zoomEl.textContent = fmtMag(basePx / px); }
+
+  // ---------- Drag to zoom ----------
+  const sel = document.getElementById("sel"), selLabel = document.getElementById("selLabel");
+  const hint = document.getElementById("hint");
+  let drag = null;
+  function rectFrom(x0, y0, x1, y1) {
+    const aspect = innerWidth / innerHeight;
+    let w = Math.abs(x1 - x0), h = Math.abs(y1 - y0);
+    if (w / h > aspect) h = w / aspect; else w = h * aspect;
+    const x = x1 >= x0 ? x0 : x0 - w, y = y1 >= y0 ? y0 : y0 - h;
+    return { x, y, w, h };
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    canvas.setPointerCapture(e.pointerId);
+    drag = { x0: e.clientX, y0: e.clientY, r: null };
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = rectFrom(drag.x0, drag.y0, e.clientX, e.clientY);
+    drag.r = r;
+    if (r.w < 6) { sel.hidden = true; return; }
+    sel.hidden = false;
+    Object.assign(sel.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
+    selLabel.textContent = fmtMag((basePx / px) * (innerWidth / r.w));
+  });
+  function endDrag(apply) {
+    if (!drag) return;
+    const r = drag.r; drag = null; sel.hidden = true;
+    if (!apply || !r || r.w < 6) return;
+    // instant stretched preview of the selected area
+    const sx = r.x * dpr, sy = r.y * dpr, sw = r.w * dpr, sh = r.h * dpr;
+    const tmp = document.createElement("canvas"); tmp.width = W; tmp.height = H;
+    tmp.getContext("2d").drawImage(canvas, 0, 0);
+    ctx.imageSmoothingEnabled = true; ctx.drawImage(tmp, sx, sy, sw, sh, 0, 0, W, H);
+    img = ctx.getImageData(0, 0, W, H);
+    // new center and scale
+    const mx = (sx + sw / 2 - W / 2) * px, my = (H / 2 - (sy + sh / 2)) * px;
+    cx += dblToFixed(mx); cy += dblToFixed(my);
+    px = px * (sw / W);
+    hint.style.opacity = 0;
+    updateZoom(); render();
+  }
+  canvas.addEventListener("pointerup", () => endDrag(true));
+  canvas.addEventListener("pointercancel", () => endDrag(false));
+  addEventListener("keydown", (e) => { if (e.key === "Escape") endDrag(false); });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    resetView(); img = ctx.createImageData(W, H); updateZoom(); render();
+  });
+
+  resize(false);
+})();
+</script>
+</body>
+</html>
