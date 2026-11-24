@@ -141,7 +141,7 @@ body { background: var(--pearson); color: var(--mist); font-family: var(--font);
 
   // ---------- Arbitrary-precision view state ----------
   const canvas = document.getElementById("view");
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   let W = 0, H = 0, dpr = 1;
   let P = 64;                 // fixed-point bits
   let cx = 0n, cy = 0n;       // center, scaled by 2^P
@@ -188,13 +188,16 @@ body { background: var(--pearson); color: var(--mist); font-family: var(--font);
   }
 
   // ---------- Render scheduler ----------
-  let job = 0, img = null, queue = [], busy = 0, total = 0, done = 0;
+  let job = 0, img = null, vals = null, queue = [], total = 0, done = 0, previewTotal = 0, previewDone = 0;
+  let lastMaxEscape = 0, frameMaxEscape = 0;
   const bar = document.getElementById("bar");
 
   function render() {
     job++;
     setPrecision();
-    const maxIter = maxIterFor();
+    // Need at least as many iterations as the previous (wider) frame actually used.
+    const maxIter = Math.min(50000, Math.max(maxIterFor(), Math.ceil(lastMaxEscape * 1.6)));
+    frameMaxEscape = 0;
     const { ref, len } = referenceOrbit(maxIter);
     for (const w of workers) w.postMessage({ type: "setup", ref, refLen: len, job });
     queue = [];
@@ -204,41 +207,90 @@ body { background: var(--pearson); color: var(--mist); font-family: var(--font);
       for (let y = 0; y < H; y += bh) bands.push({ y0: y, y1: Math.min(H, y + bh) });
       bands.sort((a, b) => Math.abs((a.y0 + a.y1) / 2 - H / 2) - Math.abs((b.y0 + b.y1) / 2 - H / 2));
       for (const b of bands) queue.push({ ...b, step, W, H, px, maxIter, job });
+      if (step === 4) previewTotal = bands.length;
     }
-    total = queue.length; done = 0; busy = 0;
+    total = queue.length; done = 0; previewDone = 0;
     bar.style.opacity = 1; bar.style.width = "0%";
     workers.forEach(w => dispatch(w));
   }
   function dispatch(w) {
     const t = queue.shift();
     if (!t) return;
-    w._busy = true; w.postMessage(t);
+    w.postMessage(t);
   }
   workers.forEach(w => {
     w.onmessage = (e) => {
-      const d = e.data; w._busy = false;
-      if (d.job === job) { paint(d); done++; bar.style.width = (100 * done / total) + "%"; if (done === total) setTimeout(() => (bar.style.opacity = 0), 250); }
+      const d = e.data;
+      if (d.job === job) {
+        store(d); paint(d.y0, d.y1);
+        done++; if (d.step === 4) previewDone++;
+        bar.style.width = (100 * done / total) + "%";
+        // Rescale colors to this view: once from the quick preview, again from the finished image.
+        if (d.step === 4 && previewDone === previewTotal) { buildColorMap(); paint(0, H); }
+        if (done === total) {
+          buildColorMap(); paint(0, H);
+          lastMaxEscape = frameMaxEscape;
+          setTimeout(() => (bar.style.opacity = 0), 250);
+        }
+      }
       dispatch(w);
     };
   });
 
-  function paint({ y0, y1, step, cols, rows, out }) {
-    const data = img.data;
+  function store({ y0, y1, step, cols, rows, out }) {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const v = out[r * cols + c];
-        let R, G, B;
-        if (v < 0) { [R, G, B] = INSIDE; }
-        else {
-          let t = Math.log2(Math.max(0, v) + 1) * 0.32 - 0.36; t -= Math.floor(t);
-          const i = (t * (LUT_N - 1)) | 0; R = LUT[i * 3]; G = LUT[i * 3 + 1]; B = LUT[i * 3 + 2];
-        }
+        if (v > frameMaxEscape) frameMaxEscape = v;
         const ys = y0 + r * step, xs = c * step;
         for (let yy = ys; yy < Math.min(ys + step, y1); yy++) {
-          let o = (yy * W + xs) * 4;
-          for (let xx = xs; xx < Math.min(xs + step, W); xx++) { data[o] = R; data[o + 1] = G; data[o + 2] = B; data[o + 3] = 255; o += 4; }
+          let o = yy * W + xs;
+          for (let xx = xs; xx < Math.min(xs + step, W); xx++) vals[o++] = v;
         }
       }
+    }
+  }
+
+  // ---------- Adaptive color map (histogram equalization) ----------
+  // Spreads the palette evenly across the escape values that are actually on screen,
+  // so deep views keep full contrast instead of collapsing into one color.
+  const Q = 1024;
+  let quant = null;                    // Q+1 sorted quantiles of log(escape value)
+  const CYCLES = 1.75;                 // how many trips through the palette per view
+  function buildColorMap() {
+    const n = vals.length, stride = Math.max(1, Math.floor(n / 250000));
+    const sample = [];
+    for (let i = 0; i < n; i += stride) { const v = vals[i]; if (v >= 0) sample.push(Math.log(v + 1)); }
+    if (sample.length < 16) return;
+    const s = Float64Array.from(sample).sort();
+    const q = new Float64Array(Q + 1);
+    for (let k = 0; k <= Q; k++) q[k] = s[Math.min(s.length - 1, Math.floor(k / Q * (s.length - 1)))];
+    quant = q;
+  }
+  function colorT(v) {
+    const lv = Math.log(v + 1);
+    if (!quant) return lv * 0.45 - 0.36;
+    if (lv <= quant[0]) return 0;
+    if (lv >= quant[Q]) return CYCLES;
+    let lo = 0, hi = Q;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (quant[m] <= lv) lo = m; else hi = m; }
+    const span = quant[hi] - quant[lo];
+    const f = span > 0 ? (lv - quant[lo]) / span : 0;
+    return ((lo + f) / Q) * CYCLES;
+  }
+
+  function paint(y0, y1) {
+    const data = img.data;
+    for (let i = y0 * W, o = i * 4, end = y1 * W; i < end; i++, o += 4) {
+      const v = vals[i];
+      if (Number.isNaN(v)) continue;   // not computed yet: keep the stretched preview
+      if (v < 0) { data[o] = INSIDE[0]; data[o + 1] = INSIDE[1]; data[o + 2] = INSIDE[2]; }
+      else {
+        let t = colorT(v) + 0.06; t -= Math.floor(t);
+        const k = (t * (LUT_N - 1)) | 0;
+        data[o] = LUT[k * 3]; data[o + 1] = LUT[k * 3 + 1]; data[o + 2] = LUT[k * 3 + 2];
+      }
+      data[o + 3] = 255;
     }
     ctx.putImageData(img, 0, 0, 0, y0, W, y1 - y0);
   }
@@ -250,6 +302,7 @@ body { background: var(--pearson); color: var(--mist); font-family: var(--font);
     W = Math.max(1, Math.round(innerWidth * dpr)); H = Math.max(1, Math.round(innerHeight * dpr));
     canvas.width = W; canvas.height = H;
     img = ctx.createImageData(W, H);
+    vals = new Float32Array(W * H).fill(NaN);
     if (keepView && oldW) {
       // keep the same center and magnification
       const ratio = basePx / px;
@@ -305,6 +358,7 @@ body { background: var(--pearson); color: var(--mist); font-family: var(--font);
     tmp.getContext("2d").drawImage(canvas, 0, 0);
     ctx.imageSmoothingEnabled = true; ctx.drawImage(tmp, sx, sy, sw, sh, 0, 0, W, H);
     img = ctx.getImageData(0, 0, W, H);
+    vals.fill(NaN);
     // new center and scale
     const mx = (sx + sw / 2 - W / 2) * px, my = (H / 2 - (sy + sh / 2)) * px;
     cx += dblToFixed(mx); cy += dblToFixed(my);
@@ -317,7 +371,7 @@ body { background: var(--pearson); color: var(--mist); font-family: var(--font);
   addEventListener("keydown", (e) => { if (e.key === "Escape") endDrag(false); });
 
   document.getElementById("reset").addEventListener("click", () => {
-    resetView(); img = ctx.createImageData(W, H); updateZoom(); render();
+    resetView(); img = ctx.createImageData(W, H); vals.fill(NaN); lastMaxEscape = 0; updateZoom(); render();
   });
 
   resize(false);
